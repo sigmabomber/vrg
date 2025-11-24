@@ -1,0 +1,11 @@
+{
+    "asset": "87663ca01a455d142a682f0373d64bd7",
+    "fileName": "019ab39b-ff3c-7767-b2cf-59270c071d81_Preview.png",
+    "prompt": "A very dark room with a light on the ceiling",
+    "negativePrompt": "",
+    "model": "44ec3749-963a-44b1-aa54-dc19f6ed8ab2",
+    "modelName": "Unity Texture2D",
+    "customSeed": 2071432149,
+    "w3CTraceId": "a0dbeaf9b47dcf660b1ad284a35f7018",
+    "refinementMode": "Generation"
+}

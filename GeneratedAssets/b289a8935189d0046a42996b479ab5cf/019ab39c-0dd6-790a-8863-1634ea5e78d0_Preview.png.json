@@ -1,0 +1,11 @@
+{
+    "asset": "b289a8935189d0046a42996b479ab5cf",
+    "fileName": "019ab39c-0dd6-790a-8863-1634ea5e78d0_Preview.png",
+    "prompt": "Material for a dark room with a ceiling light",
+    "negativePrompt": "",
+    "model": "44ec3749-963a-44b1-aa54-dc19f6ed8ab2",
+    "modelName": "Unity Texture2D",
+    "customSeed": 1948473426,
+    "w3CTraceId": "e8f6e10bc07ab7695b027283bf3fc66c",
+    "refinementMode": "Generation"
+}

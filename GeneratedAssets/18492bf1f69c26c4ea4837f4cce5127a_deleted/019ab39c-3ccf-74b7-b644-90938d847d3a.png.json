@@ -1,0 +1,20 @@
+{
+    "asset": "18492bf1f69c26c4ea4837f4cce5127a",
+    "fileName": "019ab39c-3ccf-74b7-b644-90938d847d3a.png",
+    "prompt": "Texture for a dark room with a ceiling light",
+    "negativePrompt": "",
+    "model": "5b5b2af1-6ea4-4266-b087-cc9f3bf4f450",
+    "modelName": "Flux.1 Dev",
+    "customSeed": -1,
+    "w3CTraceId": "fb9032eadf6544bf3f509c56098c961e",
+    "refinementMode": "Generation",
+    "pixelateTargetSize": 0,
+    "pixelateKeepImageSize": false,
+    "pixelatePixelBlockSize": 0,
+    "pixelateMode": 0,
+    "pixelateOutlineThickness": 0,
+    "doodles": {
+        "m_Items": []
+    },
+    "upscaleFactor": 0
+}

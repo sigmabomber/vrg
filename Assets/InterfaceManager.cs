@@ -12,6 +12,7 @@ public interface IPlayer
 
     void TakeTurn();
     void Eliminate();
+    void TakeDamage(int damage);
 }
 
 public interface ITurnBased
@@ -64,6 +65,28 @@ public interface IUIDisplay
     void UpdateTurnIndicator(IPlayer currentPlayer);
     void ShowResult(FireResult result);
     void DisplayWinner(IPlayer winner);
+
+    void UpdateGameState(string stateMessage);
+    void UpdateTurnTimer(float timeRemaining);
+    void UpdateBulletCount(int currentBullets, int maxChambers);
+    void UpdateChamberInfo(int currentChamber, int maxChambers);
+
+    void UpdatePlayerStatus(IPlayer player, bool isAlive);
+
+    void ShowWarning(string warningMessage);
+    void ShowEffect(UIEffect effect);
+
+    void ShowReloadAnimation();
+    void ShowSpinAnimation();
+}
+
+public enum UIEffect
+{
+    ChamberAdvance,
+    BulletLoaded,
+    PlayerEliminated,
+    DangerWarning,
+    SafeShot
 }
 
 public interface IPlayerStats
