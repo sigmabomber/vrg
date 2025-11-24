@@ -50,6 +50,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
     [Header("Revolver Physics")]
     [SerializeField] private bool lockRevolverAtDestination = true;
+    [SerializeField] private bool enableGravityOnBlankShots = false;
 
     private int currentTurn = 0;
     private float currentTurnTime = 0f;
@@ -64,14 +65,14 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
     private IPlayer winner = null;
     private bool isPassingRevolver = false;
     private bool isResettingScene = false;
+    private bool isProcessingShot = false;
 
     private XRGrabInteractable revolverGrabInteractable;
     private Rigidbody revolverRigidbody;
     private bool originalRevolverKinematic;
     private bool originalRevolverGravity;
 
-    private Dictionary<IPlayer, (Vector3 position, Quaternion rotation, Vector3 scale, bool wasKinematic, bool useGravity, bool hasRigidbody, bool[] colliderStates)> originalTransforms = new Dictionary<IPlayer, (Vector3, Quaternion, Vector3, bool, bool, bool, bool[])>();
-
+    private Dictionary<IPlayer, (Vector3 position, Quaternion rotation, Vector3 scale, bool wasKinematic, bool useGravity, bool hasRigidbody, bool[] colliderStates, RigidbodyConstraints originalConstraints)> originalTransforms = new Dictionary<IPlayer, (Vector3, Quaternion, Vector3, bool, bool, bool, bool[], RigidbodyConstraints)>();
 
     void Start()
     {
@@ -164,8 +165,10 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
                 playerObjects.Add(player);
 
                 Rigidbody rb = player.GetComponent<Rigidbody>();
-
-                rb.constraints = RigidbodyConstraints.FreezeAll;
+                if (rb != null)
+                {
+                    rb.constraints = RigidbodyConstraints.FreezeAll;
+                }
             }
 
             if (npcPrefab != null && npcPosition != null)
@@ -174,11 +177,11 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
                 npc.name = "NPC Opponent";
                 playerObjects.Add(npc);
 
-
-
                 Rigidbody rb = npc.GetComponent<Rigidbody>();
-
-                rb.constraints = RigidbodyConstraints.FreezeAll;
+                if (rb != null)
+                {
+                    rb.constraints = RigidbodyConstraints.FreezeAll;
+                }
             }
         }
         else
@@ -247,6 +250,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
         bool hasRigidbody = rb != null;
         bool wasKinematic = hasRigidbody ? rb.isKinematic : true;
         bool useGravity = hasRigidbody ? rb.useGravity : false;
+        RigidbodyConstraints originalConstraints = hasRigidbody ? rb.constraints : RigidbodyConstraints.FreezeAll;
 
         Collider[] colliders = playerTransform.GetComponentsInChildren<Collider>();
         bool[] colliderStates = new bool[colliders.Length];
@@ -255,46 +259,69 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
             colliderStates[i] = colliders[i].enabled;
         }
 
-        originalTransforms[player] = (playerTransform.position, playerTransform.rotation, playerTransform.localScale, wasKinematic, useGravity, hasRigidbody, colliderStates);
+        originalTransforms[player] = (playerTransform.position, playerTransform.rotation, playerTransform.localScale, wasKinematic, useGravity, hasRigidbody, colliderStates, originalConstraints);
     }
 
     void PositionRevolver(Transform targetPoint)
     {
         if (revolver != null && targetPoint != null)
         {
-            revolver.transform.position = targetPoint.position + Vector3.up * revolverFloatHeight;
+            Vector3 targetPosition = targetPoint.position + Vector3.up * revolverFloatHeight;
+            revolver.transform.position = targetPosition;
+
             Vector3 r = targetPoint.rotation.eulerAngles;
             revolver.transform.rotation = Quaternion.Euler(91f, r.y, r.z);
 
             LockRevolverAtPosition();
+
+            Debug.Log($"Positioned revolver at: {revolver.transform.position} (target: {targetPoint.position}, float height: {revolverFloatHeight})");
         }
     }
 
     private void LockRevolverAtPosition()
     {
-        if (revolverRigidbody != null && lockRevolverAtDestination)
-        {
-            revolverRigidbody.isKinematic = true;
-            revolverRigidbody.useGravity = false;
-            revolverRigidbody.linearVelocity = Vector3.zero;
-            revolverRigidbody.angularVelocity = Vector3.zero;
-            revolverRigidbody.ResetCenterOfMass();
-            revolverRigidbody.ResetInertiaTensor();
+        if (revolverRigidbody == null || !lockRevolverAtDestination)
+            return;
 
-            Debug.Log("Revolver locked at position");
-        }
+        revolverRigidbody.isKinematic = false;
+        revolverRigidbody.linearVelocity = Vector3.zero;
+        revolverRigidbody.angularVelocity = Vector3.zero;
+
+        revolverRigidbody.isKinematic = true;
+        revolverRigidbody.useGravity = false;
+
+        Debug.Log("Revolver locked at position");
     }
 
-    private void UnlockRevolver()
+    private void EnableRevolverPhysics()
     {
         if (revolverRigidbody != null)
         {
-            revolverRigidbody.isKinematic = originalRevolverKinematic;
-           // revolverRigidbody.useGravity = originalRevolverGravity;
+            revolverRigidbody.isKinematic = false;
+            revolverRigidbody.useGravity = enableGravityOnBlankShots;
+            revolverRigidbody.constraints = RigidbodyConstraints.None;
             revolverRigidbody.linearVelocity = Vector3.zero;
             revolverRigidbody.angularVelocity = Vector3.zero;
 
-            Debug.Log("Revolver unlocked for interaction");
+            Debug.Log($"Revolver physics enabled (Gravity: {enableGravityOnBlankShots})");
+        }
+
+        if (revolverGrabInteractable != null)
+        {
+            revolverGrabInteractable.enabled = true;
+        }
+    }
+
+    private void DisableRevolverPhysics()
+    {
+        if (revolverRigidbody != null)
+        {
+            revolverRigidbody.isKinematic = false;
+            revolverRigidbody.linearVelocity = Vector3.zero;
+            revolverRigidbody.angularVelocity = Vector3.zero;
+
+            revolverRigidbody.isKinematic = true;
+            revolverRigidbody.useGravity = false;
         }
     }
 
@@ -312,16 +339,12 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
                     revolverGrabInteractable.interactionManager.SelectExit(interactor, revolverGrabInteractable);
                 }
 
-                LockRevolverAtPosition();
+                DisableRevolverPhysics();
             }
 
             if (grabbable)
             {
-                UnlockRevolver();
-            }
-            else
-            {
-                LockRevolverAtPosition();
+                EnableRevolverPhysics();
             }
         }
     }
@@ -388,12 +411,14 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
             yield break;
         }
 
-        LockRevolverAtPosition();
+        DisableRevolverPhysics();
 
         Vector3 startPos = revolver.transform.position;
         Vector3 endPos = targetPoint.position + Vector3.up * revolverFloatHeight;
         Quaternion startRot = revolver.transform.rotation;
         Quaternion endRot = Quaternion.Euler(91f, targetPoint.rotation.eulerAngles.y, targetPoint.rotation.eulerAngles.z);
+
+        Debug.Log($"Passing revolver from: {startPos} to: {endPos} (target point: {targetPoint.position})");
 
         float elapsed = 0f;
         while (elapsed < revolverPassTime)
@@ -411,8 +436,9 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
         revolver.transform.position = endPos;
         revolver.transform.rotation = endRot;
 
-        LockRevolverAtPosition();
+        DisableRevolverPhysics();
 
+        Debug.Log($"Revolver final position: {revolver.transform.position}");
         isPassingRevolver = false;
     }
 
@@ -495,7 +521,10 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
         if (target != null)
         {
-            FireResult result = revolver.FireAtTarget(target);
+            if (isProcessingShot) yield break;
+            isProcessingShot = true;
+
+            FireResult result = revolver.FireAtTarget();
 
             if (result == FireResult.Bullet)
             {
@@ -532,7 +561,10 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
         {
             IPlayer randomTarget = alivePlayers[Random.Range(0, alivePlayers.Count)];
 
-            FireResult result = revolver.FireAtTarget(randomTarget);
+            if (isProcessingShot) return;
+            isProcessingShot = true;
+
+            FireResult result = revolver.FireAtTarget();
 
             if (result == FireResult.Bullet)
             {
@@ -552,9 +584,10 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
     public void OnRevolverFired(IPlayer target)
     {
-        if (!waitingForPlayerAction) return;
+        if (!waitingForPlayerAction || isProcessingShot) return;
 
         waitingForPlayerAction = false;
+        isProcessingShot = true;
         IPlayer currentPlayer = players[currentPlayerIndex];
 
         FireResult result = revolver.GetLastShotResult();
@@ -698,10 +731,12 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
                 Rigidbody rb = playerObj.GetComponent<Rigidbody>();
                 if (rb != null)
                 {
-                    rb.isKinematic = true;
-                    rb.useGravity = false;
                     rb.linearVelocity = Vector3.zero;
                     rb.angularVelocity = Vector3.zero;
+                    rb.isKinematic = true;
+                    rb.useGravity = false;
+                    // NEW: Freeze all position and rotation
+                    rb.constraints = RigidbodyConstraints.FreezeAll;
                 }
 
                 Rigidbody[] childRigidbodies = playerObj.GetComponentsInChildren<Rigidbody>();
@@ -709,10 +744,12 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
                 {
                     if (childRb != rb)
                     {
-                        childRb.isKinematic = true;
-                        childRb.useGravity = false;
                         childRb.linearVelocity = Vector3.zero;
                         childRb.angularVelocity = Vector3.zero;
+                        childRb.isKinematic = true;
+                        childRb.useGravity = false;
+                        // NEW: Freeze all position and rotation for child rigidbodies too
+                        childRb.constraints = RigidbodyConstraints.FreezeAll;
                     }
                 }
             }
@@ -728,12 +765,14 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
             GameObject targetObj = targetMono.gameObject;
 
             Rigidbody rb = targetObj.GetComponent<Rigidbody>();
-            rb.constraints = RigidbodyConstraints.None;
             if (rb == null)
             {
                 rb = targetObj.AddComponent<Rigidbody>();
                 Debug.Log($"Added Rigidbody to {target.PlayerName}");
             }
+
+            // NEW: Remove constraints for ragdoll
+            rb.constraints = RigidbodyConstraints.None;
 
             Collider collider = targetObj.GetComponent<Collider>();
             if (collider == null)
@@ -815,8 +854,12 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
                 {
                     if (rb != null)
                     {
-                        rb.linearVelocity = Vector3.zero;
-                        rb.angularVelocity = Vector3.zero;
+                        if (!rb.isKinematic)
+                        {
+                            rb.linearVelocity = Vector3.zero;
+                            rb.angularVelocity = Vector3.zero;
+                        }
+
                         rb.ResetCenterOfMass();
                         rb.ResetInertiaTensor();
 
@@ -831,7 +874,9 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
                         rb.isKinematic = originalTransform.wasKinematic;
                         rb.useGravity = originalTransform.useGravity;
-                        rb.constraints = RigidbodyConstraints.FreezeAll;
+
+                        // NEW: Restore original constraints (should be FreezeAll)
+                        rb.constraints = originalTransform.originalConstraints;
                     }
                 }
 
@@ -849,7 +894,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
                     animator.Rebind();
                     animator.Update(0f);
                 }
-                
+
                 Debug.Log($"Reset {player.PlayerName} - Rigidbodies: {allRigidbodies.Length}");
             }
         }
@@ -913,28 +958,25 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
     IEnumerator ReturnRevolverForSameTurn()
     {
-        SetRevolverGrabbable(false);
+        yield return StartCoroutine(ReturnRevolverSequence());
+        isProcessingShot = false;
 
-        if (revolverGrabInteractable != null && revolverGrabInteractable.isSelected)
-        {
-            var interactors = revolverGrabInteractable.interactorsSelecting.ToArray();
-            foreach (var interactor in interactors)
-            {
-                revolverGrabInteractable.interactionManager.SelectExit(interactor, revolverGrabInteractable);
-            }
-        }
-
-        yield return new WaitForSeconds(0.3f);
-        yield return StartCoroutine(PassRevolverToPoint(tableCenterPoint));
-        yield return new WaitForSeconds(0.5f);
-
-        StartCoroutine(PassRevolverToPlayer(currentPlayerIndex));
+        yield return StartCoroutine(PassRevolverToPlayer(currentPlayerIndex));
         StartTurn();
     }
 
     IEnumerator ReturnRevolverAndEndTurn()
     {
-        SetRevolverGrabbable(false);
+        yield return StartCoroutine(ReturnRevolverSequence());
+        isProcessingShot = false;
+        EndTurn();
+    }
+
+    IEnumerator ReturnRevolverSequence()
+    {
+        EnableRevolverPhysics();
+
+        yield return new WaitForSeconds(0.1f);
 
         if (revolverGrabInteractable != null && revolverGrabInteractable.isSelected)
         {
@@ -945,12 +987,13 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
             }
         }
 
-        yield return new WaitForSeconds(0.3f);
+        yield return new WaitForSeconds(0.2f);
+
+        DisableRevolverPhysics();
+
         yield return StartCoroutine(PassRevolverToPoint(tableCenterPoint));
         yield return new WaitForSeconds(0.5f);
-        EndTurn();
     }
-
     public void EndTurn()
     {
         if (!gameActive) return;
@@ -1019,12 +1062,13 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
         isPassingRevolver = true;
 
-        LockRevolverAtPosition();
+        DisableRevolverPhysics();
 
         Vector3 startPos = revolver.transform.position;
         Vector3 endPos = point.position + Vector3.up * revolverFloatHeight;
         Quaternion startRot = revolver.transform.rotation;
         Quaternion endRot = point.rotation;
+
 
         float elapsed = 0f;
         float duration = revolverPassTime * 0.7f;
@@ -1044,8 +1088,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
         revolver.transform.position = endPos;
         revolver.transform.rotation = endRot;
 
-        LockRevolverAtPosition();
-
+        DisableRevolverPhysics();
         isPassingRevolver = false;
     }
 

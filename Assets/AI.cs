@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
 
 public class AI : MonoBehaviour, IAIPlayer, IPlayerStats
@@ -21,6 +22,15 @@ public class AI : MonoBehaviour, IAIPlayer, IPlayerStats
     [SerializeField] private Transform aimPoint;
     [SerializeField] private float aimDuration = 1.0f;
     [SerializeField] private AnimationCurve aimCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
+
+    [Header("Rotation Settings")]
+    [SerializeField] private float selfAimAngle = -45f;
+    [SerializeField] private float opponentAimAngle = -90f;
+
+    [Header("Shooting Settings")]
+    [SerializeField] private float shootDelayAfterAim = 0.5f;
+    [SerializeField] private GameObject muzzleFlashEffect;
+    [SerializeField] private AudioClip shootSound;
 
     [Header("Visual Feedback")]
     [SerializeField] private Renderer npcRenderer;
@@ -48,13 +58,19 @@ public class AI : MonoBehaviour, IAIPlayer, IPlayerStats
 
     private Quaternion originalRotation;
     private Quaternion targetRotation;
+    private Quaternion revolverOriginalRotation;
+    private Quaternion revolverTargetRotation;
     private bool isAiming = false;
+    private bool isShooting = false;
     private float aimProgress = 0f;
     private Target currentTargetDecision;
     private Transform targetTransform;
 
     private GameManager gameManager;
     private Revolver revolver;
+    private AudioSource audioSource;
+
+    private Coroutine currentTurnCoroutine;
 
     void Awake()
     {
@@ -63,6 +79,13 @@ public class AI : MonoBehaviour, IAIPlayer, IPlayerStats
         originalRotation = transform.rotation;
         gameManager = Object.FindAnyObjectByType<GameManager>();
         revolver = Object.FindAnyObjectByType<Revolver>();
+        audioSource = GetComponent<AudioSource>();
+        if (audioSource == null) audioSource = gameObject.AddComponent<AudioSource>();
+
+        if (revolver != null)
+        {
+            revolverOriginalRotation = revolver.transform.rotation;
+        }
     }
 
     void Start()
@@ -93,6 +116,33 @@ public class AI : MonoBehaviour, IAIPlayer, IPlayerStats
 
     public void TakeTurn()
     {
+        if (isAlive && !isAiming && !isShooting && currentTurnCoroutine == null)
+        {
+            currentTurnCoroutine = StartCoroutine(AITurnSequence());
+        }
+    }
+
+    private IEnumerator AITurnSequence()
+    {
+        yield return new WaitForSeconds(1f);
+
+        if (!isAlive) yield break;
+
+        int chambersLeft = GetChambersLeft();
+        Target decision = DecideTarget(chambersLeft);
+
+        StartAiming(decision);
+
+        while (isAiming)
+        {
+            yield return null;
+        }
+
+        yield return new WaitForSeconds(shootDelayAfterAim);
+
+        ExecuteShotThroughGameManager(decision);
+
+        currentTurnCoroutine = null;
     }
 
     public void TakeDamage(int damage)
@@ -103,6 +153,7 @@ public class AI : MonoBehaviour, IAIPlayer, IPlayerStats
             currentHealth = 0;
             Eliminate();
         }
+        UpdateVisuals();
     }
 
     public Target DecideTarget(int chambersLeft)
@@ -112,7 +163,6 @@ public class AI : MonoBehaviour, IAIPlayer, IPlayerStats
         float roll = Random.Range(0f, 1f);
 
         Target decision = roll < selfShootChance ? Target.Self : Target.Opponent;
-        StartAiming(decision);
         return decision;
     }
 
@@ -120,44 +170,120 @@ public class AI : MonoBehaviour, IAIPlayer, IPlayerStats
     {
         currentTargetDecision = target;
         isAiming = true;
+        isShooting = false;
         aimProgress = 0f;
         targetTransform = GetTargetTransform(target);
+
+        originalRotation = transform.rotation;
+        if (revolver != null)
+        {
+            revolverOriginalRotation = revolver.transform.rotation;
+        }
+
+        targetRotation = CalculateTargetRotation(target);
+        if (revolver != null)
+        {
+            revolverTargetRotation = targetRotation;
+        }
 
         if (aimIndicator != null)
         {
             aimIndicator.SetActive(true);
         }
+
+    }
+
+    private Quaternion CalculateTargetRotation(Target target)
+    {
+        float targetAngle = target == Target.Self ? selfAimAngle : opponentAimAngle;
+        return Quaternion.Euler(0f, targetAngle, 0f);
     }
 
     private void UpdateAiming()
     {
-        if (targetTransform == null)
-        {
-            isAiming = false;
-            return;
-        }
-
         aimProgress += Time.deltaTime / aimDuration;
         aimProgress = Mathf.Clamp01(aimProgress);
-        Vector3 targetDirection = GetAimDirection(currentTargetDecision, targetTransform);
 
-        if (targetDirection != Vector3.zero)
+        float curveValue = aimCurve.Evaluate(aimProgress);
+
+        transform.rotation = Quaternion.Slerp(originalRotation, targetRotation, curveValue);
+
+        if (aimPoint != transform)
         {
-            targetRotation = Quaternion.LookRotation(targetDirection);
-            float curveValue = aimCurve.Evaluate(aimProgress);
-            transform.rotation = Quaternion.Slerp(originalRotation, targetRotation, curveValue);
-            if (aimPoint != transform)
-            {
-                aimPoint.rotation = Quaternion.Slerp(originalRotation, targetRotation, curveValue);
-            }
+            aimPoint.rotation = Quaternion.Slerp(originalRotation, targetRotation, curveValue);
+        }
+
+        if (revolver != null)
+        {
+            revolver.transform.rotation = Quaternion.Slerp(revolverOriginalRotation, revolverTargetRotation, curveValue);
         }
 
         UpdateAimIndicator();
 
-        if (aimProgress >= 1f)
+        if (aimProgress >= 1f && !isShooting)
         {
-            isAiming = false;
+            OnAimingComplete();
         }
+    }
+
+    private void OnAimingComplete()
+    {
+        isAiming = false;
+    }
+
+    private void ExecuteShotThroughGameManager(Target target)
+    {
+
+        if (muzzleFlashEffect != null && aimPoint != null)
+        {
+            Instantiate(muzzleFlashEffect, aimPoint.position, aimPoint.rotation);
+        }
+
+        if (shootSound != null && audioSource != null)
+        {
+            audioSource.PlayOneShot(shootSound);
+        }
+
+        IPlayer targetPlayer = GetTargetPlayer(target);
+
+        if (targetPlayer != null && gameManager != null)
+        {
+          
+            gameManager.OnRevolverFired(targetPlayer);
+        }
+        else
+        {
+            Debug.LogError("Could not find target player or GameManager!");
+        }
+
+        ObservePlayerAction(target, GetChambersLeft(), false);
+    }
+
+    private IPlayer GetTargetPlayer(Target target)
+    {
+        if (target == Target.Self) return this;
+
+        if (gameManager != null)
+        {
+            var players = gameManager.GetAllPlayers();
+            foreach (var player in players)
+            {
+                if ((Object)player != this && player.IsAlive)
+                {
+                    return player;
+                }
+            }
+        }
+        return null;
+    }
+
+    private int GetChambersLeft()
+    {
+        if (revolver != null)
+        {
+            return revolver.MaxChambers - revolver.CurrentChamber;
+        }
+        return 6;
     }
 
     private Vector3 GetAimDirection(Target target, Transform targetTransform)
@@ -201,6 +327,7 @@ public class AI : MonoBehaviour, IAIPlayer, IPlayerStats
         if (aimIndicator == null) return;
 
         aimIndicator.transform.position = aimPoint.position;
+
         Vector3 targetDirection = GetAimDirection(currentTargetDecision, targetTransform);
         if (targetDirection != Vector3.zero)
         {
@@ -222,6 +349,7 @@ public class AI : MonoBehaviour, IAIPlayer, IPlayerStats
     public void StopAiming()
     {
         isAiming = false;
+        isShooting = false;
         aimProgress = 0f;
 
         if (aimIndicator != null)
@@ -234,9 +362,22 @@ public class AI : MonoBehaviour, IAIPlayer, IPlayerStats
         {
             aimPoint.rotation = originalRotation;
         }
+
+        if (revolver != null)
+        {
+            revolver.transform.rotation = revolverOriginalRotation;
+        }
+
+        if (currentTurnCoroutine != null)
+        {
+            StopCoroutine(currentTurnCoroutine);
+            currentTurnCoroutine = null;
+        }
     }
 
     public bool IsAiming() => isAiming;
+
+    public bool IsShooting() => isShooting;
 
     public Target GetCurrentTarget() => currentTargetDecision;
 
@@ -303,6 +444,7 @@ public class AI : MonoBehaviour, IAIPlayer, IPlayerStats
 
         Collider col = GetComponent<Collider>();
         if (col != null) col.enabled = false;
+
     }
 
     private void UpdateVisuals()
@@ -340,10 +482,11 @@ public class AI : MonoBehaviour, IAIPlayer, IPlayerStats
 
         Gizmos.color = isAlive ? Color.green : Color.red;
         Gizmos.DrawWireSphere(transform.position + Vector3.up * 2f, 0.3f);
+
         Gizmos.color = Color.Lerp(Color.blue, Color.red, aggression);
         Gizmos.DrawLine(transform.position, transform.position + Vector3.up * (1f + aggression));
 
-        if (isAiming && aimPoint != null)
+        if ((isAiming || isShooting) && aimPoint != null)
         {
             Vector3 aimDirection = GetAimDirection(currentTargetDecision, targetTransform);
             Gizmos.color = currentTargetDecision == Target.Self ? Color.yellow : Color.red;
@@ -367,5 +510,31 @@ public class AI : MonoBehaviour, IAIPlayer, IPlayerStats
     public void SetAimPoint(Transform newAimPoint)
     {
         aimPoint = newAimPoint;
+    }
+
+    public void SetAimAngles(float selfAngle, float opponentAngle)
+    {
+        selfAimAngle = selfAngle;
+        opponentAimAngle = opponentAngle;
+    }
+
+    public void ForceShoot(Target target)
+    {
+        if (isAlive && !isAiming && !isShooting)
+        {
+            StartAiming(target);
+            StartCoroutine(ForceShootSequence(target));
+        }
+    }
+
+    private IEnumerator ForceShootSequence(Target target)
+    {
+        while (isAiming)
+        {
+            yield return null;
+        }
+
+        yield return new WaitForSeconds(shootDelayAfterAim);
+        ExecuteShotThroughGameManager(target);
     }
 }

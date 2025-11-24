@@ -64,14 +64,16 @@ MonoBehaviour:
     UI and other examples of best-practices for VR development.
   preview: {fileID: -313791287703854912}
   dependencies:
-  - dependency: {fileID: 11400000, guid: 0f906c94e2aa0c3488832acc1db04295, type: 2}
-    instantiationMode: 1
   - dependency: {fileID: 2100000, guid: 99685157b02e4d446bbecb015645e5e8, type: 2}
     instantiationMode: 0
+  - dependency: {fileID: 11400000, guid: 0f906c94e2aa0c3488832acc1db04295, type: 2}
+    instantiationMode: 1
   - dependency: {fileID: 2100000, guid: 727f87098255ad04987a60f5f08390bc, type: 2}
     instantiationMode: 0
   - dependency: {fileID: 2800000, guid: eb5a85b675ed34acf9efd6d574df4ceb, type: 3}
     instantiationMode: 0
+  - dependency: {fileID: 2800000, guid: 2fd6421f253b4ef1a19526541f9ffc0c, type: 3}
+    instantiationMode: 1
   - dependency: {fileID: 8300000, guid: 73390a223326937419bbc9c5d96c4a38, type: 3}
     instantiationMode: 1
   - dependency: {fileID: 919132149155446097, guid: be2911572dc3afa448d24b4e97edc5f1, type: 3}
@@ -196,6 +198,8 @@ MonoBehaviour:
     instantiationMode: 0
   - dependency: {fileID: 4890085278179872738, guid: 78151f5e58fb9f749bd5225f789faa27, type: 2}
     instantiationMode: 0
+  - dependency: {fileID: 11400000, guid: 3d8c60752a34aee458bcb6911672b334, type: 2}
+    instantiationMode: 1
   - dependency: {fileID: 2800000, guid: 065d9dcc5f44f4313a79886e9c40ea06, type: 3}
     instantiationMode: 0
   - dependency: {fileID: 2100000, guid: d149182fa7aa1dc47bd32b2a6da80ec9, type: 2}
@@ -224,6 +228,8 @@ MonoBehaviour:
     instantiationMode: 0
   - dependency: {fileID: 2100000, guid: 0a35b7e20f75a8540a2c14b9555078cb, type: 2}
     instantiationMode: 0
+  - dependency: {fileID: 2800000, guid: ee148e281f3c41c5b4ff5f8a5afe5a6c, type: 3}
+    instantiationMode: 1
   - dependency: {fileID: 2800000, guid: b658f477a2ba14f238604081771bf274, type: 3}
     instantiationMode: 0
   - dependency: {fileID: 2800000, guid: 1a452a6a86d684a7ba39272e4e14a1d6, type: 3}
