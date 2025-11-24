@@ -1030,7 +1030,7 @@ MeshCollider:
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
-  m_Enabled: 1
+  m_Enabled: 0
   serializedVersion: 5
   m_Convex: 0
   m_CookingOptions: 30
@@ -1377,7 +1377,6 @@ GameObject:
   - component: {fileID: 1531626865}
   - component: {fileID: 1531626867}
   - component: {fileID: 1531626866}
-  - component: {fileID: 1531626868}
   m_Layer: 0
   m_Name: PlayerChair
   m_TagString: Untagged
@@ -1456,28 +1455,6 @@ MeshFilter:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1531626864}
-  m_Mesh: {fileID: 8633218502525055138, guid: ec502f0402bc56c4f9c42dc5eb470e1c, type: 3}
---- !u!64 &1531626868
-MeshCollider:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1531626864}
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_IsTrigger: 0
-  m_ProvidesContacts: 0
-  m_Enabled: 1
-  serializedVersion: 5
-  m_Convex: 0
-  m_CookingOptions: 30
   m_Mesh: {fileID: 8633218502525055138, guid: ec502f0402bc56c4f9c42dc5eb470e1c, type: 3}
 --- !u!1 &1637961294
 GameObject:
@@ -1661,7 +1638,7 @@ Transform:
   m_GameObject: {fileID: 1805302210}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.693, y: 0.668, z: 0.08}
+  m_LocalPosition: {x: 0, y: 0.668, z: 0.08}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []

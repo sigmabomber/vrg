@@ -162,6 +162,10 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
                 GameObject player = Instantiate(playerPrefab, playerPosition.position, playerPosition.rotation);
                 player.name = "Human Player";
                 playerObjects.Add(player);
+
+                Rigidbody rb = player.GetComponent<Rigidbody>();
+
+                rb.constraints = RigidbodyConstraints.FreezeAll;
             }
 
             if (npcPrefab != null && npcPosition != null)
@@ -169,6 +173,12 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
                 GameObject npc = Instantiate(npcPrefab, npcPosition.position, npcPosition.rotation);
                 npc.name = "NPC Opponent";
                 playerObjects.Add(npc);
+
+
+
+                Rigidbody rb = npc.GetComponent<Rigidbody>();
+
+                rb.constraints = RigidbodyConstraints.FreezeAll;
             }
         }
         else
@@ -280,7 +290,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
         if (revolverRigidbody != null)
         {
             revolverRigidbody.isKinematic = originalRevolverKinematic;
-            revolverRigidbody.useGravity = originalRevolverGravity;
+           // revolverRigidbody.useGravity = originalRevolverGravity;
             revolverRigidbody.linearVelocity = Vector3.zero;
             revolverRigidbody.angularVelocity = Vector3.zero;
 
@@ -712,11 +722,13 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
     bool TriggerRagdoll(IPlayer target, IPlayer shooter)
     {
         MonoBehaviour targetMono = target as MonoBehaviour;
+
         if (targetMono != null)
         {
             GameObject targetObj = targetMono.gameObject;
 
             Rigidbody rb = targetObj.GetComponent<Rigidbody>();
+            rb.constraints = RigidbodyConstraints.None;
             if (rb == null)
             {
                 rb = targetObj.AddComponent<Rigidbody>();
@@ -819,6 +831,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
                         rb.isKinematic = originalTransform.wasKinematic;
                         rb.useGravity = originalTransform.useGravity;
+                        rb.constraints = RigidbodyConstraints.FreezeAll;
                     }
                 }
 
@@ -836,7 +849,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
                     animator.Rebind();
                     animator.Update(0f);
                 }
-
+                
                 Debug.Log($"Reset {player.PlayerName} - Rigidbodies: {allRigidbodies.Length}");
             }
         }
