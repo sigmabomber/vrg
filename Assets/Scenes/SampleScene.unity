@@ -734,7 +734,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &597488366
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1047,6 +1047,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GameManager
   revolver: {fileID: 2973943476027849913}
+  uiDisplayScript: {fileID: 1752981804}
   playerPosition: {fileID: 1805302211}
   npcPosition: {fileID: 1235946158}
   tableCenterPoint: {fileID: 435387140}
@@ -1457,9 +1458,9 @@ RectTransform:
   m_Children: []
   m_Father: {fileID: 631454757}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0.5, y: 1}
-  m_AnchorMax: {x: 0.5, y: 1}
-  m_AnchoredPosition: {x: 16, y: -167.54}
+  m_AnchorMin: {x: 0.5, y: 0.5}
+  m_AnchorMax: {x: 0.5, y: 0.5}
+  m_AnchoredPosition: {x: 16, y: 20.460007}
   m_SizeDelta: {x: 567.3445, y: 165.8447}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &819989157
@@ -2446,31 +2447,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UIDisplay
   turnIndicator: {fileID: 1902126559}
-  gameStateText: {fileID: 0}
   timerText: {fileID: 900702751}
-  bulletCountText: {fileID: 0}
-  chamberInfoText: {fileID: 0}
-  resultText: {fileID: 0}
   winnerText: {fileID: 819989158}
-  warningText: {fileID: 597488366}
-  playerStatusText: {fileID: 0}
-  npcStatusText: {fileID: 0}
-  playerStatusIcon: {fileID: 0}
-  npcStatusIcon: {fileID: 0}
-  resultAnimator: {fileID: 0}
-  reloadAnimator: {fileID: 0}
-  spinAnimator: {fileID: 0}
-  bulletEffect: {fileID: 0}
-  dangerEffect: {fileID: 0}
-  eliminationEffect: {fileID: 0}
-  safeEffect: {fileID: 0}
-  aliveColor: {r: 0, g: 1, b: 0, a: 1}
-  deadColor: {r: 1, g: 0, b: 0, a: 1}
-  warningColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
-  bulletColor: {r: 1, g: 0, b: 0, a: 1}
-  safeColor: {r: 1, g: 1, b: 1, a: 1}
-  aliveIcon: {fileID: 0}
-  deadIcon: {fileID: 0}
+  playerTurnColor: {r: 0, g: 1, b: 1, a: 1}
+  aiTurnColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  timerWarningColor: {r: 1, g: 0, b: 0, a: 1}
+  timerNormalColor: {r: 1, g: 1, b: 1, a: 1}
 --- !u!1 &1781606877
 GameObject:
   m_ObjectHideFlags: 0
@@ -3958,6 +3940,7 @@ GameObject:
   - component: {fileID: 6796857671883052621}
   - component: {fileID: 3787599335016292967}
   - component: {fileID: 2858834593362246089}
+  - component: {fileID: 6796857671883052622}
   m_Layer: 0
   m_Name: Table
   m_TagString: Untagged
@@ -4523,6 +4506,28 @@ Transform:
   m_Children: []
   m_Father: {fileID: 6204284244143234188}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!64 &6796857671883052622
+MeshCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4250838826803408456}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 5
+  m_Convex: 0
+  m_CookingOptions: 30
+  m_Mesh: {fileID: -8295922049011600888, guid: 14589bce3ae1f784d848651e3cf0f4b9, type: 3}
 --- !u!4 &6806519536174599873
 Transform:
   m_ObjectHideFlags: 0

@@ -5,11 +5,12 @@ using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
-public class GameManager : MonoBehaviour, ITurnBased, IGameRules
+public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager
 {
     [Header("Game References")]
     [SerializeField] private Revolver revolver;
-    [SerializeField] private IUIDisplay uiDisplay;
+    [SerializeField] private UIDisplay uiDisplayScript;
+    private IUIDisplay uiDisplay;
 
     [Header("Scene Positions")]
     [SerializeField] private Transform playerPosition;
@@ -60,6 +61,11 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
     public float TimeSpan => currentTurnTime;
     public int currentIDsTurn => players.Count > 0 ? players[currentPlayerIndex].ID : -1;
 
+    public IReadOnlyList<IPlayer> Players => players.AsReadOnly();
+    public IRevolverMechanic Revolver => revolver as IRevolverMechanic;
+    public ITurnBased TurnSystem => this;
+    public IGameRules Rules => this;
+
     private bool gameActive = false;
     private bool waitingForPlayerAction = false;
     private IPlayer winner = null;
@@ -98,7 +104,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
         if (uiDisplay == null)
         {
-            uiDisplay = Object.FindAnyObjectByType<MonoBehaviour>() as IUIDisplay;
+            uiDisplay = uiDisplayScript as IUIDisplay;
 
             if (uiDisplay == null)
             {
@@ -156,8 +162,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
         if (playerObjects.Count == 0)
         {
-            Debug.Log("No players assigned, spawning defaults...");
-
             if (playerPrefab != null && playerPosition != null)
             {
                 GameObject player = Instantiate(playerPrefab, playerPosition.position, playerPosition.rotation);
@@ -208,40 +212,45 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
         {
             if (playerObj != null)
             {
-                AI npcPlayer = playerObj.GetComponent<AI>();
+                IAIPlayer npcPlayer = playerObj.GetComponent<IAIPlayer>();
                 if (npcPlayer != null)
                 {
-                    players.Add(npcPlayer);
-                    StoreOriginalTransform(npcPlayer, playerObj.transform);
-                    Debug.Log($"Added AI player: {npcPlayer.PlayerName} (HP: {npcPlayer.Health})");
+                    players.Add(npcPlayer as IPlayer);
+                    StoreOriginalTransform(npcPlayer as IPlayer, playerObj.transform);
                     continue;
                 }
 
-                Player humanPlayerComponent = playerObj.GetComponent<Player>();
+                IPlayer humanPlayerComponent = playerObj.GetComponent<IPlayer>();
                 if (humanPlayerComponent != null)
                 {
                     players.Add(humanPlayerComponent);
                     humanPlayer = humanPlayerComponent;
                     StoreOriginalTransform(humanPlayerComponent, playerObj.transform);
-                    Debug.Log($"Added human player: {humanPlayerComponent.PlayerName} (HP: {humanPlayerComponent.Health})");
                     continue;
                 }
 
                 if (playerObj.CompareTag("Player"))
                 {
-                    Debug.LogWarning($"{playerObj.name} has Player tag but no IPlayer script! Add a player script.");
+                    var playerComponents = playerObj.GetComponents<MonoBehaviour>().Where(mb => mb is IPlayer);
+                    if (playerComponents.Any())
+                    {
+                        IPlayer foundPlayer = playerComponents.First() as IPlayer;
+                        players.Add(foundPlayer);
+                        if (foundPlayer is not IAIPlayer)
+                        {
+                            humanPlayer = foundPlayer;
+                        }
+                        StoreOriginalTransform(foundPlayer, playerObj.transform);
+                    }
                 }
             }
         }
 
         if (players.Count < 2)
         {
-            Debug.LogError("Need at least 2 players to start game!");
-            Debug.LogError("Make sure your player objects have NPCPlayer or HumanPlayer scripts attached!");
+            Debug.LogWarning($"Only {players.Count} players found. Need at least 2 players.");
             return;
         }
-
-        Debug.Log($"Players initialized: {players.Count}");
     }
 
     void StoreOriginalTransform(IPlayer player, Transform playerTransform)
@@ -273,8 +282,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
             revolver.transform.rotation = Quaternion.Euler(91f, r.y, r.z);
 
             LockRevolverAtPosition();
-
-            Debug.Log($"Positioned revolver at: {revolver.transform.position} (target: {targetPoint.position}, float height: {revolverFloatHeight})");
         }
     }
 
@@ -289,8 +296,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
         revolverRigidbody.isKinematic = true;
         revolverRigidbody.useGravity = false;
-
-        Debug.Log("Revolver locked at position");
     }
 
     private void EnableRevolverPhysics()
@@ -302,8 +307,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
             revolverRigidbody.constraints = RigidbodyConstraints.None;
             revolverRigidbody.linearVelocity = Vector3.zero;
             revolverRigidbody.angularVelocity = Vector3.zero;
-
-            Debug.Log($"Revolver physics enabled (Gravity: {enableGravityOnBlankShots})");
         }
 
         if (revolverGrabInteractable != null)
@@ -353,7 +356,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
     {
         if (players.Count < 2)
         {
-            Debug.LogError("Cannot start game with less than 2 players");
+            Debug.LogWarning("Not enough players to start game!");
             return;
         }
 
@@ -365,12 +368,12 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
         PositionRevolver(tableCenterPoint);
 
-        revolver.Reload(revolver.GenerateBulletPositions());
-        revolver.Spin();
 
-        Debug.Log($"Game started with {players.Count} players!");
-        Debug.Log($"Starting player: {players[currentPlayerIndex].PlayerName}");
-        Debug.Log($"Bullets in chambers: {string.Join(", ", revolver.BulletPositions)}");
+        if (revolver != null)
+        {
+            revolver.Reload(revolver.GenerateBulletPositions());
+            revolver.Spin();
+        }
 
         if (uiDisplay != null)
         {
@@ -406,7 +409,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
         if (targetPoint == null)
         {
-            Debug.LogError("Target point is null!");
             isPassingRevolver = false;
             yield break;
         }
@@ -417,8 +419,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
         Vector3 endPos = targetPoint.position + Vector3.up * revolverFloatHeight;
         Quaternion startRot = revolver.transform.rotation;
         Quaternion endRot = Quaternion.Euler(91f, targetPoint.rotation.eulerAngles.y, targetPoint.rotation.eulerAngles.z);
-
-        Debug.Log($"Passing revolver from: {startPos} to: {endPos} (target point: {targetPoint.position})");
 
         float elapsed = 0f;
         while (elapsed < revolverPassTime)
@@ -438,7 +438,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
         DisableRevolverPhysics();
 
-        Debug.Log($"Revolver final position: {revolver.transform.position}");
         isPassingRevolver = false;
     }
 
@@ -451,11 +450,14 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
         if (revolver != null)
         {
-            revolver.ResetShotTracking();
-        }
 
-        Debug.Log($"--- Turn {currentTurn + 1}: {currentPlayer.PlayerName}'s turn ---");
-        Debug.Log($"Current chamber: {revolver.CurrentChamber}, Bullets at: {string.Join(", ", revolver.BulletPositions)}");
+            var revolverMono = revolver as MonoBehaviour;
+            if (revolverMono != null)
+            {
+                var resetMethod = revolverMono.GetType().GetMethod("ResetShotTracking");
+                resetMethod?.Invoke(revolverMono, null);
+            }
+        }
 
         if (uiDisplay != null)
         {
@@ -474,14 +476,15 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
         bool isPlayerTurn = !(currentPlayer is IAIPlayer);
         SetRevolverGrabbable(isPlayerTurn);
 
-        if (currentPlayer is IAIPlayer)
+        if (currentPlayer is IAIPlayer aiPlayer)
         {
-            StartCoroutine(HandleAITurn(currentPlayer as IAIPlayer));
+            StartCoroutine(HandleAITurn(aiPlayer));
         }
         else
         {
             waitingForPlayerAction = true;
-            Debug.Log("Waiting for player action...");
+            currentPlayer.TakeTurn(); 
+
         }
     }
 
@@ -499,7 +502,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
         int chambersLeft = revolver.MaxChambers - revolver.CurrentChamber;
 
         Target decision = aiPlayer.DecideTarget(chambersLeft);
-        Debug.Log($"{aiPlayer.PlayerName} decided to shoot: {decision}");
 
         if (uiDisplay != null)
         {
@@ -512,7 +514,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
         IPlayer target = null;
         if (decision == Target.Self)
         {
-            target = aiPlayer;
+            target = aiPlayer as IPlayer;
         }
         else
         {
@@ -524,20 +526,19 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
             if (isProcessingShot) yield break;
             isProcessingShot = true;
 
-            FireResult result = revolver.FireAtTarget();
+            FireResult result = revolver.Fire();
 
             if (result == FireResult.Bullet)
             {
-                DealDamageToTarget(target, aiPlayer);
+                DealDamageToTarget(target, aiPlayer as IPlayer);
             }
             else
             {
-                ProcessShotResult(aiPlayer, target, result);
+                ProcessShotResult(aiPlayer as IPlayer, target, result);
             }
         }
         else
         {
-            Debug.LogError("AI could not find valid target!");
             EndTurn();
         }
     }
@@ -548,8 +549,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
         waitingForPlayerAction = false;
         IPlayer currentPlayer = players[currentPlayerIndex];
-
-        Debug.Log("Time's up! Forcing player to shoot...");
 
         if (uiDisplay != null)
         {
@@ -564,7 +563,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
             if (isProcessingShot) return;
             isProcessingShot = true;
 
-            FireResult result = revolver.FireAtTarget();
+            FireResult result = revolver.Fire();
 
             if (result == FireResult.Bullet)
             {
@@ -577,7 +576,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
         }
         else
         {
-            Debug.LogError("No alive players found!");
             EndTurn();
         }
     }
@@ -590,15 +588,12 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
         isProcessingShot = true;
         IPlayer currentPlayer = players[currentPlayerIndex];
 
-        FireResult result = revolver.GetLastShotResult();
+        FireResult result = revolver.Fire(); 
         ProcessShotResult(currentPlayer, target, result);
     }
 
     private void ProcessShotResult(IPlayer shooter, IPlayer target, FireResult result)
     {
-        Debug.Log($"{shooter.PlayerName} shoots {target.PlayerName}");
-        Debug.Log($"Result: {result}");
-
         if (uiDisplay != null)
         {
             uiDisplay.ShowResult(result);
@@ -618,7 +613,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
         if (result == FireResult.Bullet)
         {
-            Debug.Log($"{target.PlayerName} was hit!");
             DealDamageToTarget(target, shooter);
         }
         else
@@ -639,7 +633,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
             if (getsAnotherTurn)
             {
-                Debug.Log($"{shooter.PlayerName} gets another turn for surviving self-shot!");
                 if (uiDisplay != null)
                 {
                     uiDisplay.ShowWarning($"{shooter.PlayerName} gets another turn!");
@@ -666,7 +659,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
         MakeAllPlayersImmovable();
 
         bool ragdollSuccess = TriggerRagdoll(target, shooter);
-        Debug.Log($"Ragdoll triggered: {ragdollSuccess}");
 
         yield return new WaitForSeconds(ragdollDuration);
 
@@ -678,20 +670,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
         yield return new WaitForSeconds(0.1f);
 
         int damage = 1;
-        Debug.Log($"{target.PlayerName} takes {damage} damage! (HP: {target.Health} -> {target.Health - damage})");
-
-        if (target is MonoBehaviour targetMono)
-        {
-            var takeDamageMethod = targetMono.GetType().GetMethod("TakeDamage");
-            if (takeDamageMethod != null)
-            {
-                takeDamageMethod.Invoke(targetMono, new object[] { damage });
-            }
-            else
-            {
-                Debug.LogWarning($"No TakeDamage method found on {target.PlayerName}, using fallback damage handling");
-            }
-        }
+        target.TakeDamage(damage);
 
         if (uiDisplay != null)
         {
@@ -735,7 +714,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
                     rb.angularVelocity = Vector3.zero;
                     rb.isKinematic = true;
                     rb.useGravity = false;
-                    // NEW: Freeze all position and rotation
                     rb.constraints = RigidbodyConstraints.FreezeAll;
                 }
 
@@ -748,7 +726,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
                         childRb.angularVelocity = Vector3.zero;
                         childRb.isKinematic = true;
                         childRb.useGravity = false;
-                        // NEW: Freeze all position and rotation for child rigidbodies too
                         childRb.constraints = RigidbodyConstraints.FreezeAll;
                     }
                 }
@@ -768,10 +745,8 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
             if (rb == null)
             {
                 rb = targetObj.AddComponent<Rigidbody>();
-                Debug.Log($"Added Rigidbody to {target.PlayerName}");
             }
 
-            // NEW: Remove constraints for ragdoll
             rb.constraints = RigidbodyConstraints.None;
 
             Collider collider = targetObj.GetComponent<Collider>();
@@ -781,7 +756,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
                 capsule.height = 2f;
                 capsule.radius = 0.3f;
                 capsule.center = new Vector3(0, 1f, 0);
-                Debug.Log($"Added Collider to {target.PlayerName}");
             }
 
             rb.isKinematic = false;
@@ -810,12 +784,9 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
             {
                 animator.enabled = false;
             }
-
-            Debug.Log($"Ragdoll triggered for {target.PlayerName} with force: {shotForce}");
             return true;
         }
 
-        Debug.LogError($"Could not trigger ragdoll for {target.PlayerName}");
         return false;
     }
 
@@ -874,8 +845,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
                         rb.isKinematic = originalTransform.wasKinematic;
                         rb.useGravity = originalTransform.useGravity;
-
-                        // NEW: Restore original constraints (should be FreezeAll)
                         rb.constraints = originalTransform.originalConstraints;
                     }
                 }
@@ -894,8 +863,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
                     animator.Rebind();
                     animator.Update(0f);
                 }
-
-                Debug.Log($"Reset {player.PlayerName} - Rigidbodies: {allRigidbodies.Length}");
             }
         }
 
@@ -994,6 +961,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
         yield return StartCoroutine(PassRevolverToPoint(tableCenterPoint));
         yield return new WaitForSeconds(0.5f);
     }
+
     public void EndTurn()
     {
         if (!gameActive) return;
@@ -1011,7 +979,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
         if (revolver.BulletPositions.Count == 0 || revolver.CurrentChamber >= revolver.MaxChambers)
         {
-            Debug.Log("Reloading revolver...");
             if (uiDisplay != null)
             {
                 uiDisplay.UpdateGameState("Reloading revolver...");
@@ -1056,7 +1023,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
     {
         if (!animateRevolverPass || revolver == null || point == null)
         {
-            if (point == null) Debug.LogError("Target point is null in PassRevolverToPoint!");
             yield break;
         }
 
@@ -1068,7 +1034,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
         Vector3 endPos = point.position + Vector3.up * revolverFloatHeight;
         Quaternion startRot = revolver.transform.rotation;
         Quaternion endRot = point.rotation;
-
 
         float elapsed = 0f;
         float duration = revolverPassTime * 0.7f;
@@ -1091,6 +1056,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
         DisableRevolverPhysics();
         isPassingRevolver = false;
     }
+
 
     public bool CheckWinCondition()
     {
@@ -1120,11 +1086,8 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
 
         SetRevolverGrabbable(false);
 
-        Debug.Log("=== GAME OVER ===");
-
         if (winner != null)
         {
-            Debug.Log($"Winner: {winner.PlayerName}");
             if (uiDisplay != null)
             {
                 uiDisplay.DisplayWinner(winner);
@@ -1133,7 +1096,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
         }
         else
         {
-            Debug.Log("No winner - all players eliminated");
             if (uiDisplay != null)
             {
                 uiDisplay.UpdateGameState("Game Over - Draw!");
@@ -1143,14 +1105,40 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules
         StartCoroutine(PassRevolverToPoint(tableCenterPoint));
     }
 
+    public void NextTurn()
+    {
+        EndTurn();
+    }
+
+    public void EliminatePlayer(IPlayer player)
+    {
+        player.Eliminate();
+
+        if (uiDisplay != null)
+        {
+            uiDisplay.UpdatePlayerStatus(player, false);
+        }
+
+        if (IsGameOver())
+        {
+            EndGame();
+        }
+    }
+
+    public void ResetRound()
+    {
+        RestartGame();
+    }
+
     public void RestartGame()
     {
         foreach (var playerObj in playerObjects)
         {
-            var player = playerObj.GetComponent<AI>();
+            var player = playerObj.GetComponent<IPlayer>();
             if (player != null)
             {
-                player.Reset();
+                var resetMethod = playerObj.GetType().GetMethod("Reset");
+                resetMethod?.Invoke(playerObj, null);
             }
         }
 

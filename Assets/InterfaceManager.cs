@@ -7,7 +7,6 @@ public interface IPlayer
     int Health { get; }
     string PlayerName { get; }
     bool IsAlive { get; }
-
     int ID { get; }
 
     void TakeTurn();
@@ -15,16 +14,49 @@ public interface IPlayer
     void TakeDamage(int damage);
 }
 
+public interface IPlayerStats
+{
+    float Aggression { get; }
+    float Fear { get; }
+    float Confidence { get; }
+}
+
+public enum Target
+{
+    Self,
+    Opponent
+}
+
+public interface IPlayerController
+{
+    Target ChooseTarget(IPlayer self, IReadOnlyList<IPlayer> others, int chambersLeft);
+    bool ShouldSpin();
+    bool ShouldReload();
+}
+
+public interface IAIPlayer : IPlayer
+{
+    Target DecideTarget(int chambersLeft);
+    void ObservePlayerAction(Target playerChoice, int chambersLeft, bool npcShotSelfLastTurn);
+}
+
+
 public interface ITurnBased
 {
     int CurrentTurn { get; }
     float TimeSpan { get; }
-
     int currentIDsTurn { get; }
+
     void StartTurn();
     void EndTurn();
 }
 
+
+public enum FireResult
+{
+    Bullet,
+    Blank
+}
 
 public interface IRevolverMechanic
 {
@@ -33,13 +65,8 @@ public interface IRevolverMechanic
     IReadOnlyList<int> BulletPositions { get; }
 
     FireResult Fire();
-
-
     void Spin();
-
-
     void Reload(IEnumerable<int> newBulletPositions);
-
     List<int> GenerateBulletPositions();
 }
 
@@ -53,12 +80,14 @@ public interface IGameRules
 }
 
 
-public enum FireResult
+public enum UIEffect
 {
-    Bullet,
-    Blank  
+    ChamberAdvance,
+    BulletLoaded,
+    PlayerEliminated,
+    DangerWarning,
+    SafeShot
 }
-
 
 public interface IUIDisplay
 {
@@ -80,31 +109,35 @@ public interface IUIDisplay
     void ShowSpinAnimation();
 }
 
-public enum UIEffect
+
+public interface IEventLog
 {
-    ChamberAdvance,
-    BulletLoaded,
-    PlayerEliminated,
-    DangerWarning,
-    SafeShot
+    void Log(string message);
+    void LogFire(IPlayer shooter, FireResult result);
+    void LogElimination(IPlayer eliminated);
+    void LogTurnStart(IPlayer player);
 }
 
-public interface IPlayerStats
+
+public interface IGameManager
 {
-    float Aggression { get; }
-    float Fear { get; }
-    float Confidence { get; }
+    IReadOnlyList<IPlayer> Players { get; }
+    IRevolverMechanic Revolver { get; }
+    ITurnBased TurnSystem { get; }
+    IGameRules Rules { get; }
+
+    void StartGame();
+    void NextTurn();
+    void EliminatePlayer(IPlayer player);
+    void ResetRound();
 }
 
-public interface IAIPlayer : IPlayer
-{
-    Target DecideTarget(int chambersLeft);
-    void ObservePlayerAction(Target playerChoice, int chambersLeft, bool npcShotSelfLastTurn);
-}
 
-public enum Target
+public interface IRoundSystem
 {
-    Self,
-    Opponent
-}
+    int RoundNumber { get; }
 
+    void StartRound();
+    void EndRound();
+    void PrepareNextRound();
+}
