@@ -1553,6 +1553,7 @@ GameObject:
   - component: {fileID: 7069345542323454003}
   - component: {fileID: 7080610354192556705}
   - component: {fileID: 1857072195497566945}
+  - component: {fileID: 1842843804004891630}
   m_Layer: 6
   m_Name: Player
   m_TagString: Player
@@ -1733,6 +1734,27 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 0.11}
   m_Center: {x: 0, y: 1.45, z: 0}
+--- !u!65 &1842843804004891630
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1267770452528225763}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 8.92, y: 6.9, z: 0.24}
+  m_Center: {x: 0, y: 1.45, z: -1.93}
 --- !u!1 &1428464614466783469
 GameObject:
   m_ObjectHideFlags: 0
@@ -4599,7 +4621,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &7176086327931360284
 Transform:
   m_ObjectHideFlags: 0

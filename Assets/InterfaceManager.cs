@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-
+// Represents a player in the game
 public interface IPlayer
 {
     int Health { get; }
@@ -9,11 +9,12 @@ public interface IPlayer
     bool IsAlive { get; }
     int ID { get; }
 
-    void TakeTurn();
-    void Eliminate();
-    void TakeDamage(int damage);
+    void TakeTurn();      // Executes player's turn
+    void Eliminate();     // Marks player as eliminated
+    void TakeDamage(int damage); // Reduces player's health
 }
 
+// Player statistics used for AI or gameplay decisions
 public interface IPlayerStats
 {
     float Aggression { get; }
@@ -21,12 +22,14 @@ public interface IPlayerStats
     float Confidence { get; }
 }
 
+// Targeting options for actions
 public enum Target
 {
     Self,
     Opponent
 }
 
+// Controls player decisions
 public interface IPlayerController
 {
     Target ChooseTarget(IPlayer self, IReadOnlyList<IPlayer> others, int chambersLeft);
@@ -34,13 +37,23 @@ public interface IPlayerController
     bool ShouldReload();
 }
 
+// AI-specific player interface
 public interface IAIPlayer : IPlayer
 {
     Target DecideTarget(int chambersLeft);
     void ObservePlayerAction(Target playerChoice, int chambersLeft, bool npcShotSelfLastTurn);
 }
 
+// Handles ragdoll effects in physics
+public interface IRagdoll
+{
+    bool TriggerRagdoll(IPlayer target, IPlayer cause);
+    float RagdollDuration { get; }
+    float RagdollForce { get; }
+    float RagdollUpwardForce { get; }
+}
 
+// Turn-based system interface
 public interface ITurnBased
 {
     int CurrentTurn { get; }
@@ -51,13 +64,14 @@ public interface ITurnBased
     void EndTurn();
 }
 
-
+// Outcome of firing the revolver
 public enum FireResult
 {
     Bullet,
     Blank
 }
 
+// Revolver mechanics interface
 public interface IRevolverMechanic
 {
     int CurrentChamber { get; }
@@ -70,7 +84,7 @@ public interface IRevolverMechanic
     List<int> GenerateBulletPositions();
 }
 
-
+// Game rules interface
 public interface IGameRules
 {
     bool CheckWinCondition();
@@ -79,7 +93,7 @@ public interface IGameRules
     int GetActivePlayers();
 }
 
-
+// UI effects for animations or feedback
 public enum UIEffect
 {
     ChamberAdvance,
@@ -89,27 +103,24 @@ public enum UIEffect
     SafeShot
 }
 
+// Handles all UI updates
 public interface IUIDisplay
 {
     void UpdateTurnIndicator(IPlayer currentPlayer);
     void ShowResult(FireResult result);
     void DisplayWinner(IPlayer winner);
-
     void UpdateGameState(string stateMessage);
     void UpdateTurnTimer(float timeRemaining);
     void UpdateBulletCount(int currentBullets, int maxChambers);
     void UpdateChamberInfo(int currentChamber, int maxChambers);
-
     void UpdatePlayerStatus(IPlayer player, bool isAlive);
-
     void ShowWarning(string warningMessage);
     void ShowEffect(UIEffect effect);
-
     void ShowReloadAnimation();
     void ShowSpinAnimation();
 }
 
-
+// Event logging interface
 public interface IEventLog
 {
     void Log(string message);
@@ -118,7 +129,7 @@ public interface IEventLog
     void LogTurnStart(IPlayer player);
 }
 
-
+// Game manager handling main game logic
 public interface IGameManager
 {
     IReadOnlyList<IPlayer> Players { get; }
@@ -132,7 +143,7 @@ public interface IGameManager
     void ResetRound();
 }
 
-
+// Round system interface
 public interface IRoundSystem
 {
     int RoundNumber { get; }

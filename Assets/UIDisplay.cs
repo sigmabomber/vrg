@@ -14,11 +14,12 @@ public class UIDisplay : MonoBehaviour, IUIDisplay
 
     void Start()
     {
-        InitializeUI();
+        InitializeUI(); // Set initial UI state
     }
 
     private void InitializeUI()
     {
+        // Clear or set default text for UI elements
         if (turnIndicator != null) turnIndicator.text = "Game Starting...";
         if (timerText != null) timerText.text = "";
         if (winnerText != null) winnerText.text = "";
@@ -26,6 +27,7 @@ public class UIDisplay : MonoBehaviour, IUIDisplay
 
     public void UpdateTurnIndicator(IPlayer currentPlayer)
     {
+        // Update whose turn it is and set corresponding color
         if (turnIndicator != null)
         {
             turnIndicator.text = $"{currentPlayer.PlayerName}'s Turn";
@@ -35,6 +37,7 @@ public class UIDisplay : MonoBehaviour, IUIDisplay
 
     public void DisplayWinner(IPlayer winner)
     {
+        // Display the winner's name
         if (winnerText != null)
         {
             winnerText.text = $"{winner.PlayerName} WINS!";
@@ -44,6 +47,7 @@ public class UIDisplay : MonoBehaviour, IUIDisplay
 
     public void UpdateTurnTimer(float timeRemaining)
     {
+        // Update timer display and color based on remaining time
         if (timerText != null)
         {
             timerText.text = $"Time: {timeRemaining:F1}s";
@@ -53,9 +57,11 @@ public class UIDisplay : MonoBehaviour, IUIDisplay
 
     public void ResetUI()
     {
+        // Reset UI to initial state
         InitializeUI();
     }
-    // Orkar inte lägga till allt, men finns om jag vill fortsätta.
+
+    // Empty implementations for optional UI updates
     public void ShowResult(FireResult result) { }
     public void UpdateGameState(string stateMessage) { }
     public void UpdateBulletCount(int currentBullets, int maxChambers) { }

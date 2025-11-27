@@ -40,7 +40,7 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
     [SerializeField] private float chamberRotateVolume = 0.3f;
 
     [Header("Recoil")]
-    [SerializeField] private float recoilStrength = 0.1f;          // VR recoil (local transform)
+    [SerializeField] private float recoilStrength = 0.1f;          
     [SerializeField] private float recoilReturnSpeed = 10f;
 
     [SerializeField] private float cameraShakeIntensity = 0.5f;
@@ -58,11 +58,9 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
     private GameManager gameManager;
     private Camera mainCam;
 
-    // VR Recoil
     private Vector3 localRecoilOffset;
     private Vector3 localRecoilVelocity;
 
-    // Shot tracking
     private bool shotThisTurn = false;
     private FireResult lastShotResult;
 
@@ -106,7 +104,6 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
     {
         PlaySound(spinClip, spinVolume);
 
-        // Randomly rotate to a new chamber
         currentChamber = Random.Range(0, CHAMBERS);
 
         PlaySound(chamberRotateClip, chamberRotateVolume * 0.5f);
@@ -131,9 +128,6 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
             Debug.DrawRay(muzzlePoint.position, muzzlePoint.forward * raycastDistance, Color.red);
     }
 
-    // ------------------------------
-    // LASER
-    // ------------------------------
     void SetupLaser()
     {
         laserSight = GetComponent<LineRenderer>();
@@ -178,9 +172,6 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
         laserSight.SetPosition(1, endPoint);
     }
 
-    // ------------------------------
-    // FIRING
-    // ------------------------------
     public FireResult Fire()
     {
         bool wasBullet = _bulletPositions.Contains(currentChamber);
@@ -211,7 +202,6 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
         bool wasBullet = _bulletPositions.Contains(currentChamber);
         FireResult result = wasBullet ? FireResult.Bullet : FireResult.Blank;
 
-        // Raycast check
         if (Physics.Raycast(muzzlePoint.position, muzzlePoint.forward, out RaycastHit hit, raycastDistance, targetLayers))
         {
             IPlayer target = hit.collider.GetComponent<IPlayer>();
@@ -232,9 +222,6 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
         currentChamber = (currentChamber + 1) % CHAMBERS;
     }
 
-    // ------------------------------
-    // RECOIL (VR)
-    // ------------------------------
     void ApplyRecoil()
     {
         localRecoilOffset += new Vector3(-recoilStrength, recoilStrength * 0.2f, 0f);
@@ -260,9 +247,6 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
         transform.localPosition += localRecoilOffset * Time.deltaTime;
     }
 
-    // ------------------------------
-    // CAMERA SHAKE (non-VR fallback)
-    // ------------------------------
     IEnumerator CameraShake()
     {
         if (mainCam == null) yield break;
@@ -283,9 +267,6 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
         mainCam.transform.localPosition = original;
     }
 
-    // ------------------------------
-    // UTILS
-    // ------------------------------
     public void Reload(IEnumerable<int> bulletPositions)
     {
         PlaySound(reloadClip, reloadVolume);

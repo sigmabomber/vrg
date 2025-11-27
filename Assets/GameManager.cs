@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
 
-public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager
+public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager, IRagdoll
 {
     [Header("Game References")]
     [SerializeField] private Revolver revolver;
@@ -30,7 +30,6 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager
     [SerializeField] private float turnDuration = 30f;
     [SerializeField] private float aiThinkTime = 2f;
     [SerializeField] private float revolverPassTime = 1.5f;
-    [SerializeField] private float ragdollDuration = 2f;
     [SerializeField] private float screenBlackDuration = 1f;
 
     [Header("Visual Settings")]
@@ -41,9 +40,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager
     [SerializeField] private CanvasGroup screenFadeCanvas;
     [SerializeField] private float fadeSpeed = 2f;
 
-    [Header("Ragdoll Settings")]
-    [SerializeField] private float ragdollForce = 10f;
-    [SerializeField] private float ragdollUpwardForce = 3f;
+    
 
     [Header("Collider Settings")]
     [SerializeField] private bool disableCollidersDuringReset = true;
@@ -52,6 +49,19 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager
     [Header("Revolver Physics")]
     [SerializeField] private bool lockRevolverAtDestination = true;
     [SerializeField] private bool enableGravityOnBlankShots = false;
+
+    [Header("Ragdoll Settings")]
+
+    [SerializeField] private float ragdollDuration = 2f;
+
+
+    [SerializeField] private float ragdollForce = 10f;
+    [SerializeField] private float ragdollUpwardForce = 3f;
+
+    public float RagdollForce => ragdollForce;
+    public float RagdollDuration => ragdollDuration;
+    public float RagdollUpwardForce => ragdollUpwardForce;
+
 
     private int currentTurn = 0;
     private float currentTurnTime = 0f;
@@ -733,7 +743,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager
         }
     }
 
-    bool TriggerRagdoll(IPlayer target, IPlayer shooter)
+  public  bool TriggerRagdoll(IPlayer target, IPlayer shooter)
     {
         MonoBehaviour targetMono = target as MonoBehaviour;
 
