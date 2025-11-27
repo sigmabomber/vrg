@@ -161,11 +161,22 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+  selfAimAngle: -45
+  opponentAimAngle: -90
+  revolverSelfAimAngle: 90
+  revolverOpponentAimAngle: -90
+  shootDelayAfterAim: 0.5
+  muzzleFlashEffect: {fileID: 0}
+  shootSound: {fileID: 0}
+  enableDramaticAiming: 1
+  dramaticPauseDuration: 0.8
+  dramaticAimDuration: 0.5
   npcRenderer: {fileID: 0}
   aliveColor: {r: 0, g: 1, b: 0, a: 1}
   deadColor: {r: 1, g: 0, b: 0, a: 1}
   eliminatedEffect: {fileID: 0}
   aimIndicator: {fileID: 0}
+  revolver: {fileID: 8306134815763894358, guid: 153d566c46ffe2f40b0d80e989d50f27, type: 3}
 --- !u!54 &-5430767186229660985
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -191,5 +202,5 @@ Rigidbody:
   m_UseGravity: 1
   m_IsKinematic: 0
   m_Interpolate: 0
-  m_Constraints: 14
+  m_Constraints: 0
   m_CollisionDetection: 0

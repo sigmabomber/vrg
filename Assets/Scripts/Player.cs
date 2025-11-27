@@ -13,9 +13,11 @@ public class Player : MonoBehaviour, IPlayer
     [SerializeField] private Color deadColor = Color.gray;
     [SerializeField] private GameObject eliminatedEffect;
 
+    // Core player state
     private int currentHealth;
     private bool isAlive = true;
 
+    // Public interface properties
     public int Health => currentHealth;
     public string PlayerName => playerName;
     public bool IsAlive => isAlive;
@@ -35,10 +37,14 @@ public class Player : MonoBehaviour, IPlayer
         }
     }
 
+    /// <summary>Empty implementation - human player turns are handled by GameManager</summary>
     public void TakeTurn()
     {
+        // Human player turns are handled through GameManager and XR interaction
+        // This method exists to satisfy the IPlayer interface
     }
 
+    /// <summary>Handles player elimination with visual effects</summary>
     public void Eliminate()
     {
         if (!isAlive) return;
@@ -47,15 +53,18 @@ public class Player : MonoBehaviour, IPlayer
         currentHealth = 0;
         UpdateVisuals();
 
+        // Play elimination effect
         if (eliminatedEffect != null)
         {
             Instantiate(eliminatedEffect, transform.position, Quaternion.identity);
         }
 
+        // Disable collision
         Collider col = GetComponent<Collider>();
         if (col != null) col.enabled = false;
     }
 
+    /// <summary>Updates visual appearance based on alive/dead state</summary>
     private void UpdateVisuals()
     {
         if (playerRenderer != null)
@@ -67,17 +76,20 @@ public class Player : MonoBehaviour, IPlayer
         }
     }
 
+    /// <summary>Resets player to initial state</summary>
     public void Reset()
     {
         currentHealth = maxHealth;
         isAlive = true;
 
+        // Re-enable collision
         Collider col = GetComponent<Collider>();
         if (col != null) col.enabled = true;
 
         UpdateVisuals();
     }
 
+    /// <summary>Applies damage and handles death</summary>
     public void TakeDamage(int damage)
     {
         currentHealth -= damage;
@@ -88,6 +100,7 @@ public class Player : MonoBehaviour, IPlayer
         }
     }
 
+    /// <summary>Debug visualization for player state</summary>
     void OnDrawGizmos()
     {
         if (!Application.isPlaying) return;

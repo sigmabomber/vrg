@@ -42,6 +42,7 @@ public interface IAIPlayer : IPlayer
 {
     Target DecideTarget(int chambersLeft);
     void ObservePlayerAction(Target playerChoice, int chambersLeft, bool npcShotSelfLastTurn);
+    bool IsAiming();
 }
 
 // Handles ragdoll effects in physics
@@ -141,6 +142,7 @@ public interface IGameManager
     void NextTurn();
     void EliminatePlayer(IPlayer player);
     void ResetRound();
+    bool IsPlayerTurn();
 }
 
 // Round system interface

@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
@@ -12,10 +13,17 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
     public LayerMask targetLayers;
     public bool showDebugRay = true;
 
+    [Header("Target Validation")]
+    [SerializeField] private bool requireTargetToShoot = true;
+    [SerializeField] private float targetCheckDistance = 50f;
+    [SerializeField] private AudioClip invalidTargetClip;
+    [SerializeField] private float invalidTargetVolume = 0.5f;
+
     [Header("Laser Sight")]
     [SerializeField] private bool showLaserSight = true;
     [SerializeField] private LineRenderer laserSight;
-    [SerializeField] private Color laserColor = Color.red;
+    [SerializeField] private Color laserColorNoTarget = Color.red;
+    [SerializeField] private Color laserColorValidTarget = Color.green;
     [SerializeField] private float laserWidth = 0.01f;
     [SerializeField] private Material laserMaterial;
 
@@ -40,29 +48,37 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
     [SerializeField] private float chamberRotateVolume = 0.3f;
 
     [Header("Recoil")]
-    [SerializeField] private float recoilStrength = 0.1f;          
+    [SerializeField] private float recoilStrength = 0.1f;
     [SerializeField] private float recoilReturnSpeed = 10f;
-
     [SerializeField] private float cameraShakeIntensity = 0.5f;
     [SerializeField] private float cameraShakeDuration = 0.2f;
 
+    // XR Interaction components
     private XRGrabInteractable grab;
     private bool isHeld;
 
+    // Physics and audio
     private Rigidbody rb;
     private AudioSource audioSource;
 
+    // Revolver chamber state
     private List<int> _bulletPositions = new List<int>();
     private int currentChamber = 0;
 
-    private GameManager gameManager;
+    // Game references
+    public GameManager gameManager;
     private Camera mainCam;
 
+    // Recoil system
     private Vector3 localRecoilOffset;
     private Vector3 localRecoilVelocity;
 
+    // Shot tracking
     private bool shotThisTurn = false;
     private FireResult lastShotResult;
+
+    // Targeting system
+    private IPlayer currentTargetInSight = null;
 
     void Awake()
     {
@@ -89,45 +105,124 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
         gameManager = FindAnyObjectByType<GameManager>();
     }
 
+    /// <summary>Handles when player grabs the revolver</summary>
     void OnGrab(SelectEnterEventArgs args)
     {
         isHeld = true;
         UpdateLaser();
     }
 
+    /// <summary>Handles when player releases the revolver</summary>
     void OnRelease(SelectExitEventArgs args)
     {
         isHeld = false;
+        currentTargetInSight = null;
         UpdateLaser();
     }
+
+    /// <summary>Randomizes chamber position for new round</summary>
     public void Spin()
     {
         PlaySound(spinClip, spinVolume);
-
         currentChamber = Random.Range(0, CHAMBERS);
-
         PlaySound(chamberRotateClip, chamberRotateVolume * 0.5f);
     }
 
+    /// <summary>Handles trigger pull - validates target and initiates shot</summary>
     void OnTriggerPulled(ActivateEventArgs args)
     {
         if (!isHeld || shotThisTurn)
             return;
 
+        // Validate target before allowing shot
+        if (requireTargetToShoot && !IsAimingAtValidTarget())
+        {
+            PlaySound(invalidTargetClip, invalidTargetVolume);
+            Debug.Log("No valid target! Aim at a player or NPC to shoot.");
+
+            // Haptic feedback for invalid target
+            if (grab.isSelected)
+            {
+                var controller = grab.interactorsSelecting[0] as UnityEngine.XR.Interaction.Toolkit.Interactors.XRBaseInputInteractor;
+                if (controller != null)
+                {
+                    controller.SendHapticImpulse(0.3f, 0.1f);
+                }
+            }
+
+            return;
+        }
+
         shotThisTurn = true;
         PlaySound(hammerCockClip, hammerCockVolume);
-        Invoke(nameof(Fire), 0.08f);
+        Invoke(nameof(Fire), 0.08f); // Small delay for hammer cock sound
     }
 
     void Update()
     {
+        UpdateTargetCheck();
         UpdateLaser();
         UpdateVRRecoil();
 
+        // Debug visualization
         if (showDebugRay)
-            Debug.DrawRay(muzzlePoint.position, muzzlePoint.forward * raycastDistance, Color.red);
+        {
+            Color debugColor = currentTargetInSight != null ? Color.green : Color.red;
+            Debug.DrawRay(muzzlePoint.position, muzzlePoint.forward * raycastDistance, debugColor);
+        }
     }
 
+    /// <summary>Continuously checks for valid targets in sight</summary>
+    void UpdateTargetCheck()
+    {
+        if (!isHeld)
+        {
+            currentTargetInSight = null;
+            return;
+        }
+
+        currentTargetInSight = GetTargetInSight();
+    }
+
+    /// <summary>Checks if currently aiming at a valid living player</summary>
+    bool IsAimingAtValidTarget()
+    {
+        return GetTargetInSight() != null;
+    }
+
+    /// <summary>Performs raycast to find IPlayer targets in sight line</summary>
+    IPlayer GetTargetInSight()
+    {
+        if (muzzlePoint == null) return null;
+
+        // Raycast for target detection
+        if (Physics.Raycast(muzzlePoint.position, muzzlePoint.forward, out RaycastHit hit, targetCheckDistance, targetLayers))
+        {
+            // Check hit object and parents for IPlayer component
+            IPlayer target = hit.collider.GetComponent<IPlayer>();
+
+            if (target != null && target.IsAlive)
+            {
+                return target;
+            }
+
+            // Search parent hierarchy for IPlayer component
+            Transform current = hit.collider.transform;
+            while (current != null)
+            {
+                target = current.GetComponent<IPlayer>();
+                if (target != null && target.IsAlive)
+                {
+                    return target;
+                }
+                current = current.parent;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Initializes laser sight visual component</summary>
     void SetupLaser()
     {
         laserSight = GetComponent<LineRenderer>();
@@ -144,10 +239,9 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
         }
 
         laserSight.material = laserMaterial;
-        laserSight.startColor = laserColor;
-        laserSight.endColor = laserColor;
     }
 
+    /// <summary>Updates laser sight position and color based on targeting</summary>
     void UpdateLaser()
     {
         if (!showLaserSight || !isHeld || laserSight == null)
@@ -158,6 +252,12 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
 
         laserSight.enabled = true;
 
+        // Color indicates targeting status
+        Color currentLaserColor = currentTargetInSight != null ? laserColorValidTarget : laserColorNoTarget;
+        laserSight.startColor = currentLaserColor;
+        laserSight.endColor = currentLaserColor;
+
+        // Calculate laser endpoint
         Vector3 endPoint;
         if (Physics.Raycast(muzzlePoint.position, muzzlePoint.forward, out RaycastHit hit, raycastDistance, targetLayers))
         {
@@ -172,9 +272,14 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
         laserSight.SetPosition(1, endPoint);
     }
 
+    /// <summary>Main firing method - handles bullet check, effects, and game notification</summary>
     public FireResult Fire()
     {
+        Debug.Log($"=== REVOLVER FIRE === Chamber: {currentChamber}, Bullets: [{string.Join(", ", _bulletPositions)}]");
+
+        // Determine shot result
         bool wasBullet = _bulletPositions.Contains(currentChamber);
+        lastShotResult = wasBullet ? FireResult.Bullet : FireResult.Blank;
 
         if (wasBullet)
         {
@@ -188,23 +293,54 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
             ApplyRecoilEmpty();
         }
 
-        FireAtTarget();
-        AdvanceChamber();
+        // Notify GameManager of shot with current target
+        if (gameManager != null && isHeld)
+        {
+            IPlayer target = GetTargetInSight();
+            if (target != null)
+            {
+                gameManager.OnRevolverFired(target);
+            }
+            else
+            {
+                // Fallback to first alive player if no target in sight
+                var alivePlayers = gameManager.GetAllPlayers().Where(p => p.IsAlive).ToList();
+                if (alivePlayers.Count > 0)
+                {
+                    gameManager.OnRevolverFired(alivePlayers[0]);
+                }
+            }
+        }
 
-        lastShotResult = wasBullet ? FireResult.Bullet : FireResult.Blank;
+        // Advance chamber after processing shot
+        AdvanceChamber();
         Invoke(nameof(ResetShotTracking), 0.2f);
 
         return lastShotResult;
     }
 
+    /// <summary>Alternative fire method with explicit target raycasting</summary>
     public FireResult FireAtTarget()
     {
         bool wasBullet = _bulletPositions.Contains(currentChamber);
         FireResult result = wasBullet ? FireResult.Bullet : FireResult.Blank;
 
+        // Perform target detection raycast
         if (Physics.Raycast(muzzlePoint.position, muzzlePoint.forward, out RaycastHit hit, raycastDistance, targetLayers))
         {
             IPlayer target = hit.collider.GetComponent<IPlayer>();
+
+            // Search parent hierarchy for target
+            if (target == null)
+            {
+                Transform current = hit.collider.transform;
+                while (current != null && target == null)
+                {
+                    target = current.GetComponent<IPlayer>();
+                    current = current.parent;
+                }
+            }
+
             if (target != null)
             {
                 gameManager?.OnRevolverFired(target);
@@ -215,24 +351,27 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
         return result;
     }
 
-
+    /// <summary>Advances to next chamber with sound effect</summary>
     void AdvanceChamber()
     {
         PlaySound(chamberRotateClip, chamberRotateVolume);
         currentChamber = (currentChamber + 1) % CHAMBERS;
     }
 
+    /// <summary>Applies full recoil for live rounds</summary>
     void ApplyRecoil()
     {
         localRecoilOffset += new Vector3(-recoilStrength, recoilStrength * 0.2f, 0f);
         StartCoroutine(CameraShake());
     }
 
+    /// <summary>Applies reduced recoil for blank rounds</summary>
     void ApplyRecoilEmpty()
     {
         localRecoilOffset += new Vector3(-recoilStrength * 0.3f, 0f, 0f);
     }
 
+    /// <summary>Smoothly returns revolver to original position after recoil</summary>
     void UpdateVRRecoil()
     {
         if (!isHeld) return;
@@ -247,6 +386,7 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
         transform.localPosition += localRecoilOffset * Time.deltaTime;
     }
 
+    /// <summary>Camera shake effect for bullet shots</summary>
     IEnumerator CameraShake()
     {
         if (mainCam == null) yield break;
@@ -260,13 +400,13 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
             float intensity = cameraShakeIntensity * (1f - t / cameraShakeDuration);
 
             mainCam.transform.localPosition = original + Random.insideUnitSphere * intensity * 0.01f;
-
             yield return null;
         }
 
         mainCam.transform.localPosition = original;
     }
 
+    /// <summary>Reloads revolver with new bullet positions</summary>
     public void Reload(IEnumerable<int> bulletPositions)
     {
         PlaySound(reloadClip, reloadVolume);
@@ -274,6 +414,7 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
         currentChamber = 0;
     }
 
+    /// <summary>Generates random bullet positions within chambers</summary>
     public List<int> GenerateBulletPositions()
     {
         _bulletPositions.Clear();
@@ -289,17 +430,19 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
         return _bulletPositions;
     }
 
+    /// <summary>Helper method for audio playback</summary>
     private void PlaySound(AudioClip clip, float volume)
     {
         if (clip == null) return;
         audioSource.PlayOneShot(clip, volume);
     }
 
+    // Public properties and methods
     public void ResetShotTracking() => shotThisTurn = false;
-
     public FireResult GetLastShotResult() => lastShotResult;
-
     public int CurrentChamber => currentChamber;
     public int MaxChambers => CHAMBERS;
     public IReadOnlyList<int> BulletPositions => _bulletPositions;
+    public bool HasValidTargetInSight => currentTargetInSight != null;
+    public IPlayer CurrentTarget => currentTargetInSight;
 }
