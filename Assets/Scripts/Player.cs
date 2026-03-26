@@ -1,6 +1,6 @@
+using Doody.GameEvents;
 using UnityEngine;
-
-public class Player : MonoBehaviour, IPlayer
+public class Player : EventListener, IPlayer
 {
     [Header("Player Info")]
     [SerializeField] private string playerName = "Player";
@@ -62,6 +62,8 @@ public class Player : MonoBehaviour, IPlayer
         // Disable collision
         Collider col = GetComponent<Collider>();
         if (col != null) col.enabled = false;
+
+        Events.Publish(new PlayerEliminatedEvent { Player = this });
     }
 
     /// <summary>Updates visual appearance based on alive/dead state</summary>
@@ -93,6 +95,9 @@ public class Player : MonoBehaviour, IPlayer
     public void TakeDamage(int damage)
     {
         currentHealth -= damage;
+
+        Events.Publish(new PlayerDamagedEvent { Player = this, Damage = damage });
+
         if (currentHealth <= 0)
         {
             currentHealth = 0;

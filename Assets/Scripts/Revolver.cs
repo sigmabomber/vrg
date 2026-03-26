@@ -4,8 +4,9 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
+using Doody.GameEvents;
 
-public class Revolver : MonoBehaviour, IRevolverMechanic
+public class Revolver : EventListener, IRevolverMechanic
 {
     [Header("Raycast Settings")]
     public Transform muzzlePoint;
@@ -66,7 +67,6 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
     private int currentChamber = 0;
 
     // Game references
-    public GameManager gameManager;
     private Camera mainCam;
 
     // Recoil system
@@ -101,8 +101,6 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
         Reload(GenerateBulletPositions());
 
         if (muzzlePoint == null) muzzlePoint = transform;
-
-        gameManager = FindAnyObjectByType<GameManager>();
     }
 
     /// <summary>Handles when player grabs the revolver</summary>
@@ -126,6 +124,8 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
         PlaySound(spinClip, spinVolume);
         currentChamber = Random.Range(0, CHAMBERS);
         PlaySound(chamberRotateClip, chamberRotateVolume * 0.5f);
+
+        Events.Publish(new RevolverSpunEvent { NewChamber = currentChamber });
     }
 
     /// <summary>Handles trigger pull - validates target and initiates shot</summary>
@@ -135,7 +135,8 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
             return;
 
         // Validate target before allowing shot
-        if (requireTargetToShoot && !IsAimingAtValidTarget())
+        IPlayer targetInSight = GetTargetInSight();
+        if (requireTargetToShoot && targetInSight == null)
         {
             PlaySound(invalidTargetClip, invalidTargetVolume);
             Debug.Log("No valid target! Aim at a player or NPC to shoot.");
@@ -147,6 +148,25 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
                 if (controller != null)
                 {
                     controller.SendHapticImpulse(0.3f, 0.1f);
+                }
+            }
+
+            return;
+        }
+
+        // Prevent shooting yourself
+        if (targetInSight != null && IsShootingSelf(targetInSight))
+        {
+            PlaySound(invalidTargetClip, invalidTargetVolume);
+            Debug.Log("Cannot shoot yourself!");
+
+            // Haptic feedback for self-target
+            if (grab.isSelected)
+            {
+                var controller = grab.interactorsSelecting[0] as UnityEngine.XR.Interaction.Toolkit.Interactors.XRBaseInputInteractor;
+                if (controller != null)
+                {
+                    controller.SendHapticImpulse(0.5f, 0.15f);
                 }
             }
 
@@ -188,6 +208,22 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
     bool IsAimingAtValidTarget()
     {
         return GetTargetInSight() != null;
+    }
+
+    /// <summary>Checks if the target in sight is the current player (self)</summary>
+    bool IsShootingSelf(IPlayer targetInSight)
+    {
+        if (targetInSight == null) return false;
+
+        // Get current player from game manager
+        GameManager gameManager = FindObjectOfType<GameManager>();
+        if (gameManager == null) return false;
+
+        IReadOnlyList<IPlayer> players = gameManager.Players;
+        if (players.Count == 0) return false;
+
+        // Check if this target is the current player by ID
+        return targetInSight.ID == gameManager.currentIDsTurn;
     }
 
     /// <summary>Performs raycast to find IPlayer targets in sight line</summary>
@@ -293,24 +329,14 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
             ApplyRecoilEmpty();
         }
 
-        // Notify GameManager of shot with current target
-        if (gameManager != null && isHeld)
+        // Notify via events
+        IPlayer target = GetTargetInSight();
+        Events.Publish(new RevolverFiredEvent
         {
-            IPlayer target = GetTargetInSight();
-            if (target != null)
-            {
-                gameManager.OnRevolverFired(target);
-            }
-            else
-            {
-                // Fallback to first alive player if no target in sight
-                var alivePlayers = gameManager.GetAllPlayers().Where(p => p.IsAlive).ToList();
-                if (alivePlayers.Count > 0)
-                {
-                    gameManager.OnRevolverFired(alivePlayers[0]);
-                }
-            }
-        }
+            Target = target,
+            Result = lastShotResult,
+            WasHeld = isHeld
+        });
 
         // Advance chamber after processing shot
         AdvanceChamber();
@@ -343,7 +369,12 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
 
             if (target != null)
             {
-                gameManager?.OnRevolverFired(target);
+                Events.Publish(new RevolverFiredEvent
+                {
+                    Target = target,
+                    Result = result,
+                    WasHeld = false
+                });
             }
         }
 
@@ -412,6 +443,8 @@ public class Revolver : MonoBehaviour, IRevolverMechanic
         PlaySound(reloadClip, reloadVolume);
         _bulletPositions = new List<int>(bulletPositions);
         currentChamber = 0;
+
+        Events.Publish(new RevolverReloadedEvent { BulletPositions = bulletPositions });
     }
 
     /// <summary>Generates random bullet positions within chambers</summary>

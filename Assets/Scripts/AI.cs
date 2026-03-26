@@ -1,8 +1,8 @@
-using UnityEngine;
+using Doody.GameEvents;
 using System.Collections;
-using System.Collections.Generic;
+using UnityEngine;
 
-public class AI : MonoBehaviour, IAIPlayer, IPlayerStats
+public class AI : EventListener, IAIPlayer, IPlayerStats
 {
     [Header("Player Info")]
     [SerializeField] private string playerName = "NPC";
@@ -223,6 +223,9 @@ public class AI : MonoBehaviour, IAIPlayer, IPlayerStats
     public void TakeDamage(int damage)
     {
         currentHealth -= damage;
+
+        Events.Publish(new PlayerDamagedEvent { Player = this, Damage = damage });
+
         if (currentHealth <= 0)
         {
             currentHealth = 0;
@@ -379,7 +382,8 @@ public class AI : MonoBehaviour, IAIPlayer, IPlayerStats
         IPlayer targetPlayer = GetTargetPlayer(target);
         if (targetPlayer != null && gameManager != null)
         {
-            gameManager.OnRevolverFired(targetPlayer);
+            Events.Publish(new RevolverFiredEvent());
+           // gameManager.OnRevolverFired(targetPlayer);
         }
     }
 
@@ -524,6 +528,8 @@ public class AI : MonoBehaviour, IAIPlayer, IPlayerStats
 
         Collider col = GetComponent<Collider>();
         if (col != null) col.enabled = false;
+
+        Events.Publish(new PlayerEliminatedEvent { Player = this });
     }
 
     private void UpdateVisuals()

@@ -4,8 +4,10 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
+using Doody.GameEvents;
+using System;
 
-public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager, IRagdoll
+public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, IRagdoll
 {
     [Header("Game References")]
     [SerializeField] private Revolver revolver;
@@ -63,6 +65,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager, 
     private bool isPassingRevolver = false;
     private bool isResettingScene = false;
     private bool isProcessingShot = false;
+    private GameState currentState = GameState.WaitingForStart;
 
     // Revolver physics control
     private XRGrabInteractable revolverGrabInteractable;
@@ -109,6 +112,9 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager, 
             uiDisplay = uiDisplayScript as IUIDisplay;
         }
 
+        // Subscribe to game events
+        SubscribeToEvents();
+
         // Initialize screen fade
         if (screenFadeCanvas != null)
         {
@@ -120,9 +126,30 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager, 
         StartGame();
     }
 
+    private void SubscribeToEvents()
+    {
+        Listen<RevolverFiredEvent>(OnRevolverFiredEvent);
+        Listen<RevolverReloadedEvent>(OnRevolverReloaded);
+        Listen<RevolverSpunEvent>(OnRevolverSpun);
+        Listen<PlayerEliminatedEvent>(OnPlayerEliminated);
+        Listen<PlayerDamagedEvent>(OnPlayerDamaged);
+        Listen<GameErrorEvent>(OnGameError);
+        Listen<GameResetEvent>(OnGameReset);
+    }
+
+    private void ChangeState(GameState newState)
+    {
+        GameState previousState = currentState;
+        currentState = newState;
+
+        Events.Publish(new GameStateChangedEvent { NewState = newState, PreviousState = previousState });
+
+        Debug.Log($"Game state changed: {previousState} -> {newState}");
+    }
+
     void Update()
     {
-        if (!gameActive || isPassingRevolver || isResettingScene) return;
+        if (currentState != GameState.TurnInProgress) return;
 
         currentTurnTime += Time.deltaTime;
 
@@ -164,14 +191,24 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager, 
         // Create players if none assigned
         if (playerObjects.Count == 0)
         {
-            if (playerPrefab != null && playerPosition != null)
+
+            GameObject playerObject = GameObject.Find("Player");
+            GameObject npcObject = GameObject.Find("NPC");
+
+            if (playerObject != null)
+                playerObjects.Add(playerObject);
+
+            if (npcObject != null)
+                playerObjects.Add(npcObject);
+            if (playerPrefab != null && playerPosition != null && playerObject == null)
             {
+
                 GameObject player = Instantiate(playerPrefab, playerPosition.position, playerPosition.rotation);
                 player.name = "Human Player";
                 playerObjects.Add(player);
             }
 
-            if (npcPrefab != null && npcPosition != null)
+            if (npcPrefab != null && npcPosition != null && npcObject == null)
             {
                 GameObject npc = Instantiate(npcPrefab, npcPosition.position, npcPosition.rotation);
                 npc.name = "NPC Opponent";
@@ -306,10 +343,12 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager, 
     {
         if (revolverGrabInteractable != null)
         {
-            revolverGrabInteractable.enabled = grabbable;
+            // Can only grab if it's player's turn AND not passing the revolver
+            bool canGrab = grabbable && !isPassingRevolver;
+            revolverGrabInteractable.enabled = canGrab;
 
             // Force release if currently grabbed
-            if (!grabbable && revolverGrabInteractable.isSelected)
+            if (!canGrab && revolverGrabInteractable.isSelected)
             {
                 var interactors = revolverGrabInteractable.interactorsSelecting.ToArray();
                 foreach (var interactor in interactors)
@@ -319,7 +358,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager, 
                 DisableRevolverPhysics();
             }
 
-            if (grabbable)
+            if (canGrab)
             {
                 EnableRevolverPhysics();
             }
@@ -333,8 +372,9 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager, 
 
         gameActive = true;
         currentTurn = 0;
-        currentPlayerIndex = Random.Range(0, players.Count);
+        currentPlayerIndex = UnityEngine.Random.Range(0, players.Count);
         winner = null;
+        ChangeState(GameState.Starting);
 
         PositionRevolver(tableCenterPoint);
 
@@ -376,6 +416,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager, 
         if (!animateRevolverPass || revolver == null) yield break;
 
         isPassingRevolver = true;
+        SetRevolverGrabbable(false); // Ensure revolver can't be grabbed during pass
         IPlayer targetPlayer = players[playerIndex];
         Transform targetPoint = targetPlayer is IAIPlayer ? tableEdgeNPCSide : tableEdgePlayerSide;
 
@@ -418,6 +459,9 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager, 
 
         currentTurnTime = 0f;
         IPlayer currentPlayer = players[currentPlayerIndex];
+        ChangeState(GameState.TurnInProgress);
+
+        Events.Publish(new TurnStartedEvent { CurrentPlayer = currentPlayer });
 
         // UI updates
         if (uiDisplay != null)
@@ -522,7 +566,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager, 
         var alivePlayers = players.Where(p => p.IsAlive).ToList();
         if (alivePlayers.Count > 0)
         {
-            IPlayer randomTarget = alivePlayers[Random.Range(0, alivePlayers.Count)];
+            IPlayer randomTarget = alivePlayers[UnityEngine.Random.Range(0, alivePlayers.Count)];
 
             if (isProcessingShot) return;
             isProcessingShot = true;
@@ -545,17 +589,97 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager, 
     }
 
     /// <summary>Called when player fires the revolver</summary>
-    public void OnRevolverFired(IPlayer target)
+    private void OnRevolverFiredEvent(RevolverFiredEvent evt)
     {
-        if (!waitingForPlayerAction || isProcessingShot) return;
+        try
+        {
+            if (currentState != GameState.TurnInProgress || isProcessingShot) return;
 
-        waitingForPlayerAction = false;
-        isProcessingShot = true;
-        IPlayer currentPlayer = players[currentPlayerIndex];
+            waitingForPlayerAction = false;
+            isProcessingShot = true;
+            ChangeState(GameState.ProcessingShot);
+            IPlayer currentPlayer = players[currentPlayerIndex];
+            IPlayer target = evt.Target;
 
-        // Use the result from the already-fired revolver
-        FireResult result = revolver.GetLastShotResult();
-        ProcessShotResult(currentPlayer, target, result);
+            // Fallback to first alive player if no target in sight
+            if (target == null)
+            {
+                var alivePlayers = GetAllPlayers().Where(p => p.IsAlive).ToList();
+                if (alivePlayers.Count > 0)
+                {
+                    target = alivePlayers[0];
+                }
+                else
+                {
+                    // No valid targets, end turn
+                    EndTurn();
+                    return;
+                }
+            }
+
+            // Use the result from the event
+            FireResult result = evt.Result;
+            ProcessShotResult(currentPlayer, target, result);
+        }
+        catch (System.Exception ex)
+        {
+            Events.Publish(new GameErrorEvent { Error = "Error processing revolver fired event", Exception = ex });
+        }
+    }
+
+    private void OnRevolverReloaded(RevolverReloadedEvent evt)
+    {
+        if (uiDisplay != null)
+        {
+            uiDisplay.UpdateBulletCount(evt.BulletPositions.Count(), revolver.MaxChambers);
+            uiDisplay.ShowReloadAnimation();
+        }
+    }
+
+    private void OnRevolverSpun(RevolverSpunEvent evt)
+    {
+        if (uiDisplay != null)
+        {
+            uiDisplay.UpdateChamberInfo(evt.NewChamber, revolver.MaxChambers);
+            uiDisplay.ShowSpinAnimation();
+        }
+    }
+
+    private void OnGameError(GameErrorEvent evt)
+    {
+        Debug.LogError($"Game Error: {evt.Error}");
+        if (evt.Exception != null)
+        {
+            Debug.LogException(evt.Exception);
+        }
+
+        // Attempt recovery
+        Events.Publish(new GameResetEvent());
+    }
+
+    private void OnPlayerEliminated(PlayerEliminatedEvent evt)
+    {
+        if (uiDisplay != null)
+        {
+            uiDisplay.UpdatePlayerStatus(evt.Player, false);
+        }
+
+        if (IsGameOver())
+        {
+            EndGame();
+        }
+    }
+
+    private void OnPlayerDamaged(PlayerDamagedEvent evt)
+    {
+        // Additional logic for damage events if needed
+        Debug.Log($"{evt.Player.PlayerName} took {evt.Damage} damage");
+    }
+
+    private void OnGameReset(GameResetEvent evt)
+    {
+        Debug.Log("Game reset requested - attempting recovery");
+        ResetRound();
     }
 
     /// <summary>Processes shot result and handles consequences</summary>
@@ -619,6 +743,60 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager, 
         StartCoroutine(HitSequence(target, shooter));
     }
 
+    IEnumerator RunHitSequenceInternal(
+    IPlayer target,
+    IPlayer shooter,
+    MonoBehaviour targetMono,
+    Action<System.Exception> onError)
+    {
+        yield return new WaitForEndOfFrame();
+        yield return new WaitForFixedUpdate();
+
+        MakeAllPlayersImmovable(target);
+        bool ragdollSuccess = TriggerRagdoll(target, shooter);
+
+        if (ragdollSuccess)
+        {
+            yield return new WaitForSeconds(ragdollDuration);
+
+            Rigidbody[] targetRigidbodies = targetMono.gameObject.GetComponentsInChildren<Rigidbody>();
+            foreach (Rigidbody rb in targetRigidbodies)
+            {
+                if (rb != null && !rb.isKinematic)
+                {
+                    rb.linearVelocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                }
+                rb.isKinematic = true;
+            }
+        }
+
+        yield return StartCoroutine(FadeToBlack());
+        yield return StartCoroutine(ResetCharacterPositions());
+        yield return new WaitForSeconds(0.2f);
+
+        target.TakeDamage(1);
+
+        if (uiDisplay != null)
+            uiDisplay.UpdatePlayerStatus(target, target.IsAlive);
+
+        if (IsGameOver())
+        {
+            EndGame();
+            yield break;
+        }
+
+        int chambersLeft = revolver.MaxChambers - revolver.CurrentChamber;
+        foreach (var player in players.OfType<IAIPlayer>().ToArray())
+        {
+            if (player != target && player != shooter)
+                player.ObservePlayerAction(Target.Opponent, chambersLeft, false);
+        }
+
+        yield return StartCoroutine(FadeFromBlack());
+        yield return new WaitForSeconds(0.1f);
+    }
+
     /// <summary>Complete hit sequence with ragdoll and screen effects</summary>
     IEnumerator HitSequence(IPlayer target, IPlayer shooter)
     {
@@ -631,69 +809,21 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager, 
             yield break;
         }
 
-        try
+        Exception caughtException = null;
+
+        yield return RunHitSequenceInternal(target, shooter, targetMono, e => caughtException = e);
+
+        if (caughtException != null)
         {
-            yield return new WaitForEndOfFrame();
-            yield return new WaitForFixedUpdate();
-
-            // Freeze all players except target before ragdoll
-            MakeAllPlayersImmovable(target);
-            bool ragdollSuccess = TriggerRagdoll(target, shooter);
-
-            if (ragdollSuccess)
+            Events.Publish(new GameErrorEvent
             {
-                yield return new WaitForSeconds(ragdollDuration);
-
-                // Freeze target after ragdoll duration
-                Rigidbody[] targetRigidbodies = targetMono.gameObject.GetComponentsInChildren<Rigidbody>();
-                foreach (Rigidbody rb in targetRigidbodies)
-                {
-                    if (rb != null && !rb.isKinematic)
-                    {
-                        rb.linearVelocity = Vector3.zero;
-                        rb.angularVelocity = Vector3.zero;
-                    }
-                    rb.isKinematic = true;
-                }
-            }
-
-            // Screen fade sequence
-            yield return StartCoroutine(FadeToBlack());
-            yield return StartCoroutine(ResetCharacterPositions());
-            yield return new WaitForSeconds(0.2f);
-
-            // Apply damage and check game over
-            target.TakeDamage(1);
-
-            if (uiDisplay != null)
-            {
-                uiDisplay.UpdatePlayerStatus(target, target.IsAlive);
-            }
-
-            if (IsGameOver())
-            {
-                EndGame();
-                yield break;
-            }
-
-            // AI learning from the shot
-            int chambersLeft = revolver.MaxChambers - revolver.CurrentChamber;
-            foreach (var player in players.OfType<IAIPlayer>().ToArray())
-            {
-                if (player != target && player != shooter)
-                {
-                    player.ObservePlayerAction(Target.Opponent, chambersLeft, false);
-                }
-            }
-
-            yield return StartCoroutine(FadeFromBlack());
-            yield return new WaitForSeconds(0.1f);
+                Error = "Error in hit sequence",
+                Exception = caughtException
+            });
         }
-        finally
-        {
-            isResettingScene = false;
-            StartCoroutine(ReturnRevolverAndEndTurn());
-        }
+
+        isResettingScene = false;
+        StartCoroutine(ReturnRevolverAndEndTurn());
     }
 
     /// <summary>Freezes all players except specified exclusion</summary>
@@ -775,7 +905,7 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager, 
             mainBody.AddForce(shotForce, ForceMode.Impulse);
 
             // Add random torque for realism
-            Vector3 torque = new Vector3(Random.Range(-2f, 2f), Random.Range(-1f, 1f), Random.Range(-2f, 2f));
+            Vector3 torque = new Vector3(UnityEngine.Random.Range(-2f, 2f), UnityEngine.Random.Range(-1f, 1f), UnityEngine.Random.Range(-2f, 2f));
             mainBody.AddTorque(torque, ForceMode.Impulse);
             return true;
         }
@@ -938,6 +1068,9 @@ public class GameManager : MonoBehaviour, ITurnBased, IGameRules, IGameManager, 
     public void EndTurn()
     {
         if (!gameActive) return;
+
+        IPlayer previousPlayer = players[currentPlayerIndex];
+        Events.Publish(new TurnEndedEvent { PreviousPlayer = previousPlayer });
 
         currentTurn++;
 

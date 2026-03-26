@@ -1,7 +1,7 @@
-using UnityEngine;
+using Doody.GameEvents;
 using TMPro;
-
-public class UIDisplay : MonoBehaviour, IUIDisplay
+using UnityEngine;
+public class UIDisplay : EventListener, IUIDisplay
 {
     [SerializeField] private TMP_Text turnIndicator;
     [SerializeField] private TMP_Text timerText;
@@ -14,7 +14,18 @@ public class UIDisplay : MonoBehaviour, IUIDisplay
 
     void Start()
     {
-        InitializeUI(); // Set initial UI state
+        InitializeUI();
+        SubscribeToEvents();
+    }
+
+    private void SubscribeToEvents()
+    {
+        Listen<TurnStartedEvent>(OnTurnStarted);
+        Listen<RevolverFiredEvent>(OnRevolverFired);
+        Listen<GameStateChangedEvent>(OnGameStateChanged);
+        Listen<PlayerEliminatedEvent>(OnPlayerEliminated);
+        Listen<UIUpdateEvent>(OnUIUpdate);
+        Listen<UIEffectEvent>(OnUIEffect);
     }
 
     private void InitializeUI()
@@ -71,4 +82,54 @@ public class UIDisplay : MonoBehaviour, IUIDisplay
     public void ShowEffect(UIEffect effect) { }
     public void ShowReloadAnimation() { }
     public void ShowSpinAnimation() { }
+
+    // Event handlers
+    private void OnTurnStarted(TurnStartedEvent evt)
+    {
+        UpdateTurnIndicator(evt.CurrentPlayer);
+    }
+
+    private void OnRevolverFired(RevolverFiredEvent evt)
+    {
+        ShowResult(evt.Result);
+        UpdateGameState($"Shot fired - {evt.Result}");
+
+        if (evt.Result == FireResult.Bullet)
+        {
+            ShowEffect(UIEffect.PlayerEliminated);
+        }
+        else
+        {
+            ShowEffect(UIEffect.SafeShot);
+        }
+    }
+
+    private void OnGameStateChanged(GameStateChangedEvent evt)
+    {
+        // Handle state-specific UI updates
+        switch (evt.NewState)
+        {
+            case GameState.GameOver:
+                UpdateGameState("Game Over!");
+                break;
+            case GameState.ResettingScene:
+                UpdateGameState("Resetting scene...");
+                break;
+        }
+    }
+
+    private void OnPlayerEliminated(PlayerEliminatedEvent evt)
+    {
+        UpdatePlayerStatus(evt.Player, false);
+    }
+
+    private void OnUIUpdate(UIUpdateEvent evt)
+    {
+        UpdateGameState(evt.Message);
+    }
+
+    private void OnUIEffect(UIEffectEvent evt)
+    {
+        ShowEffect(evt.Effect);
+    }
 }
