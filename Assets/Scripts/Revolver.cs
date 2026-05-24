@@ -80,12 +80,16 @@ public class Revolver : EventListener, IRevolverMechanic
     // Targeting system
     private IPlayer currentTargetInSight = null;
 
+
+ 
     void Awake()
     {
         grab = GetComponent<XRGrabInteractable>();
         grab.activated.AddListener(OnTriggerPulled);
         grab.selectEntered.AddListener(OnGrab);
         grab.selectExited.AddListener(OnRelease);
+
+
 
         rb = GetComponent<Rigidbody>();
         if (rb == null) rb = gameObject.AddComponent<Rigidbody>();
@@ -116,6 +120,10 @@ public class Revolver : EventListener, IRevolverMechanic
         isHeld = false;
         currentTargetInSight = null;
         UpdateLaser();
+        if (GameManager.Instance.IsPlayerTurn())
+        {
+           StartCoroutine( GameManager.Instance.SetRevolverBackToPosition(GameManager.Instance.currentPlayerIndex, 3f));
+        }
     }
 
     /// <summary>Randomizes chamber position for new round</summary>
@@ -154,8 +162,7 @@ public class Revolver : EventListener, IRevolverMechanic
             return;
         }
 
-        // Prevent shooting yourself
-        if (targetInSight != null && IsShootingSelf(targetInSight))
+      /*  if (targetInSight != null && IsShootingSelf(targetInSight))
         {
             PlaySound(invalidTargetClip, invalidTargetVolume);
             Debug.Log("Cannot shoot yourself!");
@@ -171,7 +178,7 @@ public class Revolver : EventListener, IRevolverMechanic
             }
 
             return;
-        }
+        }*/
 
         shotThisTurn = true;
         PlaySound(hammerCockClip, hammerCockVolume);
@@ -312,7 +319,7 @@ public class Revolver : EventListener, IRevolverMechanic
     public FireResult Fire()
     {
         Debug.Log($"=== REVOLVER FIRE === Chamber: {currentChamber}, Bullets: [{string.Join(", ", _bulletPositions)}]");
-
+        GameManager.Instance.SetRevolverGrabbable(false);
         // Determine shot result
         bool wasBullet = _bulletPositions.Contains(currentChamber);
         lastShotResult = wasBullet ? FireResult.Bullet : FireResult.Blank;

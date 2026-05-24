@@ -6,6 +6,7 @@ public class UIDisplay : EventListener, IUIDisplay
     [SerializeField] private TMP_Text turnIndicator;
     [SerializeField] private TMP_Text timerText;
     [SerializeField] private TMP_Text winnerText;
+    [SerializeField] private TMP_Text stateText;
 
     [SerializeField] private Color playerTurnColor = Color.cyan;
     [SerializeField] private Color aiTurnColor = Color.yellow;
@@ -34,6 +35,7 @@ public class UIDisplay : EventListener, IUIDisplay
         if (turnIndicator != null) turnIndicator.text = "Game Starting...";
         if (timerText != null) timerText.text = "";
         if (winnerText != null) winnerText.text = "";
+        if (stateText != null) stateText.text = "";
     }
 
     public void UpdateTurnIndicator(IPlayer currentPlayer)
@@ -72,16 +74,86 @@ public class UIDisplay : EventListener, IUIDisplay
         InitializeUI();
     }
 
-    // Empty implementations for optional UI updates
-    public void ShowResult(FireResult result) { }
-    public void UpdateGameState(string stateMessage) { }
-    public void UpdateBulletCount(int currentBullets, int maxChambers) { }
-    public void UpdateChamberInfo(int currentChamber, int maxChambers) { }
-    public void UpdatePlayerStatus(IPlayer player, bool isAlive) { }
-    public void ShowWarning(string warningMessage) { }
-    public void ShowEffect(UIEffect effect) { }
-    public void ShowReloadAnimation() { }
-    public void ShowSpinAnimation() { }
+    public void ShowResult(FireResult result)
+    {
+        string message = result == FireResult.Bullet ? "Bullet fired!" : "Blank shot.";
+        UpdateGameState(message);
+    }
+
+    public void UpdateGameState(string stateMessage)
+    {
+        if (stateText != null)
+        {
+            stateText.text = stateMessage;
+            return;
+        }
+
+        if (turnIndicator != null)
+        {
+            turnIndicator.text = stateMessage;
+        }
+    }
+
+    public void UpdateBulletCount(int currentBullets, int maxChambers)
+    {
+        if (timerText != null)
+        {
+            timerText.text = $"Bullets: {currentBullets}/{maxChambers}";
+            timerText.color = timerNormalColor;
+        }
+    }
+
+    public void UpdateChamberInfo(int currentChamber, int maxChambers)
+    {
+        if (winnerText != null)
+        {
+            winnerText.text = $"Chamber: {currentChamber + 1}/{maxChambers}";
+            winnerText.color = Color.white;
+        }
+    }
+
+    public void UpdatePlayerStatus(IPlayer player, bool isAlive)
+    {
+        if (stateText == null) return;
+        stateText.text = $"{player.PlayerName} is {(isAlive ? "alive" : "eliminated")}.";
+    }
+
+    public void ShowWarning(string warningMessage)
+    {
+        if (timerText != null)
+        {
+            timerText.text = warningMessage;
+            timerText.color = timerWarningColor;
+        }
+        else if (stateText != null)
+        {
+            stateText.text = warningMessage;
+        }
+    }
+
+    public void ShowEffect(UIEffect effect)
+    {
+        if (stateText == null) return;
+        stateText.text = effect switch
+        {
+            UIEffect.PlayerEliminated => "A player has been eliminated!",
+            UIEffect.DangerWarning => "Danger! A risky shot is coming.",
+            UIEffect.SafeShot => "Safe shot - no bullet fired.",
+            UIEffect.BulletLoaded => "Revolver reloaded.",
+            UIEffect.ChamberAdvance => "Chamber advanced.",
+            _ => stateText.text
+        };
+    }
+
+    public void ShowReloadAnimation()
+    {
+        UpdateGameState("Reloading revolver...");
+    }
+
+    public void ShowSpinAnimation()
+    {
+        UpdateGameState("Spinning revolver...");
+    }
 
     // Event handlers
     private void OnTurnStarted(TurnStartedEvent evt)

@@ -9,6 +9,9 @@ using System;
 
 public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, IRagdoll
 {
+
+    public static GameManager Instance;
+
     [Header("Game References")]
     [SerializeField] private Revolver revolver;
     [SerializeField] private UIDisplay uiDisplayScript;
@@ -25,7 +28,7 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
     [SerializeField] private GameObject playerPrefab;
     [SerializeField] private GameObject npcPrefab;
     [SerializeField] private List<GameObject> playerObjects = new List<GameObject>();
-    private List<IPlayer> players = new List<IPlayer>();
+    public List<IPlayer> players = new List<IPlayer>();
     private IPlayer humanPlayer;
 
     [Header("Turn Settings")]
@@ -58,7 +61,7 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
     // Core game state
     private int currentTurn = 0;
     private float currentTurnTime = 0f;
-    private int currentPlayerIndex = 0;
+    public int currentPlayerIndex = 0;
     private bool gameActive = false;
     private bool waitingForPlayerAction = false;
     private IPlayer winner = null;
@@ -90,6 +93,8 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
 
     void Start()
     {
+        Instance = this;
+
         ValidatePositions();
         InitializePlayers();
 
@@ -339,7 +344,7 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
     }
 
     /// <summary>Controls whether revolver can be grabbed by player</summary>
-    private void SetRevolverGrabbable(bool grabbable)
+    public void SetRevolverGrabbable(bool grabbable)
     {
         if (revolverGrabInteractable != null)
         {
@@ -371,6 +376,10 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
         if (players.Count < 2) return;
 
         gameActive = true;
+        waitingForPlayerAction = false;
+        isProcessingShot = false;
+        isPassingRevolver = false;
+        isResettingScene = false;
         currentTurn = 0;
         currentPlayerIndex = UnityEngine.Random.Range(0, players.Count);
         winner = null;
@@ -411,14 +420,20 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
     }
 
     /// <summary>Animates revolver passing to specific player</summary>
-    IEnumerator PassRevolverToPlayer(int playerIndex)
+  public  IEnumerator PassRevolverToPlayer(int playerIndex)
     {
         if (!animateRevolverPass || revolver == null) yield break;
 
         isPassingRevolver = true;
         SetRevolverGrabbable(false); // Ensure revolver can't be grabbed during pass
         IPlayer targetPlayer = players[playerIndex];
+
+        
+
         Transform targetPoint = targetPlayer is IAIPlayer ? tableEdgeNPCSide : tableEdgePlayerSide;
+
+
+        
 
         if (targetPoint == null)
         {
@@ -452,6 +467,44 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
         isPassingRevolver = false;
     }
 
+    public IEnumerator SetRevolverBackToPosition(int playerIndex, float duration = 1f)
+    {
+        if (!animateRevolverPass || revolver == null) yield break;
+
+        Transform targetPoint = tableEdgePlayerSide;
+
+        if (targetPoint == null)
+        {
+            isPassingRevolver = false;
+            yield break;
+        }
+
+        SetRevolverGrabbable(false);
+        // Animate revolver movement
+        Vector3 startPos = revolver.transform.position;
+        Vector3 endPos = targetPoint.position + Vector3.up * revolverFloatHeight;
+        Quaternion startRot = revolver.transform.rotation;
+        Quaternion endRot = Quaternion.Euler(91f, targetPoint.rotation.eulerAngles.y, targetPoint.rotation.eulerAngles.z);
+
+        float elapsed = 0f;
+        while (elapsed < revolverPassTime)
+        {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / revolverPassTime);
+            float smoothT = Mathf.SmoothStep(0f, duration, t);
+
+            revolver.transform.position = Vector3.Lerp(startPos, endPos, smoothT);
+            revolver.transform.rotation = Quaternion.Slerp(startRot, endRot, smoothT);
+            yield return null;
+        }
+
+        revolver.transform.position = endPos;
+        revolver.transform.rotation = endRot;
+        SetRevolverGrabbable(true);
+
+        DisableRevolverPhysics();
+    }
+
     /// <summary>Starts a new turn for current player</summary>
     public void StartTurn()
     {
@@ -468,7 +521,7 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
         {
             uiDisplay.UpdateTurnIndicator(currentPlayer);
             uiDisplay.UpdateTurnTimer(turnDuration);
-            uiDisplay.UpdateGameState($"{currentPlayer.PlayerName}'s Turn - Take Aim!");
+            uiDisplay.UpdateGameState($"{currentPlayer.PlayerName}'s Turn Take Aim!");
             uiDisplay.UpdateBulletCount(revolver.BulletPositions.Count, revolver.MaxChambers);
             uiDisplay.UpdateChamberInfo(revolver.CurrentChamber, revolver.MaxChambers);
 
@@ -528,20 +581,8 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
 
         if (target != null)
         {
-            if (isProcessingShot) yield break;
-            isProcessingShot = true;
-
-            FireResult result = revolver.Fire();
             AllowRevolverRotation(false);
-
-            if (result == FireResult.Bullet)
-            {
-                DealDamageToTarget(target, aiPlayer as IPlayer);
-            }
-            else
-            {
-                ProcessShotResult(aiPlayer as IPlayer, target, result);
-            }
+            revolver.Fire();
         }
         else
         {
@@ -569,18 +610,8 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
             IPlayer randomTarget = alivePlayers[UnityEngine.Random.Range(0, alivePlayers.Count)];
 
             if (isProcessingShot) return;
-            isProcessingShot = true;
 
-            FireResult result = revolver.Fire();
-
-            if (result == FireResult.Bullet)
-            {
-                DealDamageToTarget(randomTarget, currentPlayer);
-            }
-            else
-            {
-                ProcessShotResult(currentPlayer, randomTarget, result);
-            }
+            revolver.Fire();
         }
         else
         {
@@ -593,7 +624,7 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
     {
         try
         {
-            if (currentState != GameState.TurnInProgress || isProcessingShot) return;
+            if (!gameActive || currentState != GameState.TurnInProgress || isProcessingShot) return;
 
             waitingForPlayerAction = false;
             isProcessingShot = true;
@@ -664,6 +695,8 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
             uiDisplay.UpdatePlayerStatus(evt.Player, false);
         }
 
+        if (!gameActive) return;
+
         if (IsGameOver())
         {
             EndGame();
@@ -678,13 +711,15 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
 
     private void OnGameReset(GameResetEvent evt)
     {
-        Debug.Log("Game reset requested - attempting recovery");
+        Debug.Log("Game reset requested  attempting recovery");
         ResetRound();
     }
 
     /// <summary>Processes shot result and handles consequences</summary>
     private void ProcessShotResult(IPlayer shooter, IPlayer target, FireResult result)
     {
+        if (!gameActive) return;
+
         // UI feedback
         if (uiDisplay != null)
         {
@@ -740,6 +775,7 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
     /// <summary>Handles damage application and ragdoll effects</summary>
     private void DealDamageToTarget(IPlayer target, IPlayer shooter)
     {
+        if (!gameActive) return;
         StartCoroutine(HitSequence(target, shooter));
     }
 
@@ -800,6 +836,11 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
     /// <summary>Complete hit sequence with ragdoll and screen effects</summary>
     IEnumerator HitSequence(IPlayer target, IPlayer shooter)
     {
+        if (!gameActive)
+        {
+            yield break;
+        }
+
         isResettingScene = true;
         MonoBehaviour targetMono = target as MonoBehaviour;
 
@@ -1031,6 +1072,9 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
     IEnumerator ReturnRevolverForSameTurn()
     {
         yield return StartCoroutine(ReturnRevolverSequence());
+
+        if (!gameActive) yield break;
+
         isProcessingShot = false;
         yield return StartCoroutine(PassRevolverToPlayer(currentPlayerIndex));
         StartTurn();
@@ -1039,6 +1083,9 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
     IEnumerator ReturnRevolverAndEndTurn()
     {
         yield return StartCoroutine(ReturnRevolverSequence());
+
+        if (!gameActive) yield break;
+
         isProcessingShot = false;
         EndTurn();
     }
@@ -1105,8 +1152,12 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
     /// <summary>Reloads revolver and continues game</summary>
     IEnumerator ReloadSequence()
     {
+        if (!gameActive) yield break;
+
         yield return StartCoroutine(PassRevolverToPoint(tableCenterPoint));
         yield return new WaitForSeconds(0.5f);
+
+        if (!gameActive) yield break;
 
         revolver.Reload(revolver.GenerateBulletPositions());
         revolver.Spin();
@@ -1125,7 +1176,10 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
 
     IEnumerator PassAndStartNextTurn()
     {
+        if (!gameActive) yield break;
+
         yield return StartCoroutine(PassRevolverToPlayer(currentPlayerIndex));
+        if (!gameActive) yield break;
         StartTurn();
     }
 
@@ -1193,9 +1247,17 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
     /// <summary>Ends the game and declares winner</summary>
     private void EndGame()
     {
+        if (!gameActive) return;
+
         gameActive = false;
-        winner = GetWinner();
+        waitingForPlayerAction = false;
+        isProcessingShot = false;
+        isPassingRevolver = false;
+        isResettingScene = false;
+        ChangeState(GameState.GameOver);
         SetRevolverGrabbable(false);
+
+        winner = GetWinner();
 
         if (winner != null)
         {
@@ -1211,6 +1273,7 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
         }
 
         StartCoroutine(PassRevolverToPoint(tableCenterPoint));
+        Events.Publish(new GameEndedEvent { Winner = winner });
     }
 
     // Public interface implementations
@@ -1224,15 +1287,20 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
     public void ResetRound() => RestartGame();
     public void RestartGame()
     {
+        StopAllCoroutines();
+        waitingForPlayerAction = false;
+        isProcessingShot = false;
+        isPassingRevolver = false;
+        isResettingScene = false;
+        gameActive = false;
+        ChangeState(GameState.WaitingForStart);
+
         foreach (var playerObj in playerObjects)
         {
             var player = playerObj.GetComponent<IPlayer>();
-            if (player != null)
-            {
-                var resetMethod = playerObj.GetType().GetMethod("Reset");
-                resetMethod?.Invoke(playerObj, null);
-            }
+            player?.Reset();
         }
+
         InitializePlayers();
         StartGame();
     }

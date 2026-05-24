@@ -168,13 +168,13 @@ public class AI : EventListener, IAIPlayer, IPlayerStats
     private IEnumerator DramaticSelfShotSequence()
     {
         StartAiming(Target.Opponent);
-        while (isAiming) yield return null;
-
+        while (isAiming) { print(":("); yield return null; }
+        print("woah");
         yield return new WaitForSeconds(dramaticPauseDuration); // Dramatic tension
 
         dramaticAimCoroutine = StartCoroutine(DramaticAimTransition(Target.Self));
         yield return dramaticAimCoroutine;
-
+        print("eee");
         yield return new WaitForSeconds(shootDelayAfterAim * 0.5f); // Shorter delay for drama
     }
 
@@ -301,7 +301,11 @@ public class AI : EventListener, IAIPlayer, IPlayerStats
 
     private void StartAiming(Target target)
     {
-        if (revolver == null) return;
+        if (revolver == null) 
+        {
+            Debug.LogWarning($"AI {playerName}: Revolver is null, cannot aim!");
+            return;
+        }
 
         if (gameManager != null)
         {
@@ -323,7 +327,15 @@ public class AI : EventListener, IAIPlayer, IPlayerStats
         targetRotation = CalculateTargetRotation(target);
         if (revolver != null) revolverTargetRotation = CalculateRevolverTargetRotation(target);
 
+        Debug.Log($"AI {playerName} aiming at {target}, targetRotation: {targetRotation.eulerAngles}, revolverTargetRotation: {revolverTargetRotation.eulerAngles}");
+
         if (aimIndicator != null) aimIndicator.SetActive(true);
+
+        if (revolver != null)
+        {
+            Debug.Log($"Setting revolver rotation to: {revolverTargetRotation.eulerAngles}");
+            revolver.transform.rotation = revolverTargetRotation;
+        }
     }
 
     private Quaternion CalculateTargetRotation(Target target)
@@ -335,7 +347,7 @@ public class AI : EventListener, IAIPlayer, IPlayerStats
     private Quaternion CalculateRevolverTargetRotation(Target target)
     {
         float revolverAngle = target == Target.Self ? revolverSelfAimAngle : revolverOpponentAimAngle;
-        return Quaternion.Euler(0f, revolverAngle, 0f);
+        return targetRotation * Quaternion.Euler(0f, revolverAngle, 0f);
     }
 
     /// <summary> Smoothly interpolates rotation towards target during aiming</summary>
@@ -349,7 +361,10 @@ public class AI : EventListener, IAIPlayer, IPlayerStats
         // Apply rotation interpolation
         transform.rotation = Quaternion.Slerp(originalRotation, targetRotation, curveValue);
         if (aimPoint != transform) aimPoint.rotation = Quaternion.Slerp(originalRotation, targetRotation, curveValue);
-        if (revolver != null) revolver.transform.rotation = Quaternion.Slerp(revolverOriginalRotation, revolverTargetRotation, curveValue);
+        if (revolver != null) 
+        {
+            revolver.transform.rotation = Quaternion.Slerp(revolverOriginalRotation, revolverTargetRotation, curveValue);
+        }
 
         UpdateAimIndicator();
 

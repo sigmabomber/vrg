@@ -12,6 +12,7 @@ public interface IPlayer
     void TakeTurn();      // Executes player's turn
     void Eliminate();     // Marks player as eliminated
     void TakeDamage(int damage); // Reduces player's health
+    void Reset();         // Restores player to starting state
 }
 
 // Player statistics used for AI or gameplay decisions

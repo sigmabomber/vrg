@@ -273,6 +273,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Player
       objectReference: {fileID: 0}
+    - target: {fileID: 3156498388046995379, guid: 10933831f9bb7414b9fb063d41fb9cfc, type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 4044101252465120538, guid: 10933831f9bb7414b9fb063d41fb9cfc, type: 3}
       propertyPath: m_IsActive
       value: 1
@@ -320,6 +324,10 @@ PrefabInstance:
     - target: {fileID: 7080610354192556705, guid: 10933831f9bb7414b9fb063d41fb9cfc, type: 3}
       propertyPath: m_Constraints
       value: 126
+      objectReference: {fileID: 0}
+    - target: {fileID: 8623448580515963466, guid: 10933831f9bb7414b9fb063d41fb9cfc, type: 3}
+      propertyPath: m_Enabled
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -1044,6 +1052,7 @@ MonoBehaviour:
   ragdollDuration: 2
   ragdollForce: 10
   ragdollUpwardForce: 3
+  currentPlayerIndex: 0
 --- !u!4 &694102764
 Transform:
   m_ObjectHideFlags: 0
@@ -2169,9 +2178,17 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: -5430767186229660985, guid: 36aac9992e226f442b4557e7f0e19428, type: 3}
-      propertyPath: m_Constraints
-      value: 126
+    - target: {fileID: 384199579920342836, guid: 36aac9992e226f442b4557e7f0e19428, type: 3}
+      propertyPath: opponentAimAngle
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 384199579920342836, guid: 36aac9992e226f442b4557e7f0e19428, type: 3}
+      propertyPath: revolverSelfAimAngle
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 384199579920342836, guid: 36aac9992e226f442b4557e7f0e19428, type: 3}
+      propertyPath: revolverOpponentAimAngle
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5563920466732198443, guid: 36aac9992e226f442b4557e7f0e19428, type: 3}
       propertyPath: m_LocalPosition.x
@@ -2452,6 +2469,7 @@ MonoBehaviour:
   turnIndicator: {fileID: 1902126559}
   timerText: {fileID: 900702751}
   winnerText: {fileID: 819989158}
+  stateText: {fileID: 0}
   playerTurnColor: {r: 0, g: 1, b: 1, a: 1}
   aiTurnColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   timerWarningColor: {r: 1, g: 0, b: 0, a: 1}
