@@ -44,6 +44,7 @@ public interface IAIPlayer : IPlayer
     Target DecideTarget(int chambersLeft);
     void ObservePlayerAction(Target playerChoice, int chambersLeft, bool npcShotSelfLastTurn);
     bool IsAiming();
+    void TakeTurn(System.Action onComplete); // add this overload
 }
 
 // Handles ragdoll effects in physics

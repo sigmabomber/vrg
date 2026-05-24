@@ -274,6 +274,22 @@ PrefabInstance:
       propertyPath: m_Name
       value: Player
       objectReference: {fileID: 0}
+    - target: {fileID: 1292710986970071494, guid: 10933831f9bb7414b9fb063d41fb9cfc, type: 3}
+      propertyPath: m_ClearFlags
+      value: 4
+      objectReference: {fileID: 0}
+    - target: {fileID: 1292710986970071494, guid: 10933831f9bb7414b9fb063d41fb9cfc, type: 3}
+      propertyPath: near clip plane
+      value: 0.01
+      objectReference: {fileID: 0}
+    - target: {fileID: 1292710986970071494, guid: 10933831f9bb7414b9fb063d41fb9cfc, type: 3}
+      propertyPath: m_CullingMask.m_Bits
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 3147364894863039920, guid: 10933831f9bb7414b9fb063d41fb9cfc, type: 3}
+      propertyPath: m_CameraType
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 4656863955256146819, guid: 10933831f9bb7414b9fb063d41fb9cfc, type: 3}
       propertyPath: m_LocalPosition.x
       value: 3.287
@@ -314,10 +330,16 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8214122743111351995, guid: 10933831f9bb7414b9fb063d41fb9cfc, type: 3}
+      propertyPath: m_CullingMask.m_Bits
+      value: 4294967295
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects:
-    - {fileID: 9075050329732027615, guid: 10933831f9bb7414b9fb063d41fb9cfc, type: 3}
-    m_AddedGameObjects: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects:
+    - targetCorrespondingSourceObject: {fileID: 8553549681910082613, guid: 10933831f9bb7414b9fb063d41fb9cfc, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 803336665}
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 10933831f9bb7414b9fb063d41fb9cfc, type: 3}
 --- !u!1 &180652840
@@ -1084,7 +1106,7 @@ GameObject:
   - component: {fileID: 803336663}
   - component: {fileID: 803336662}
   - component: {fileID: 803336661}
-  m_Layer: 5
+  m_Layer: 3
   m_Name: Fade
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1173,17 +1195,17 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 803336660}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: -8.347318}
   m_LocalScale: {x: 0.5734375, y: 0.5734375, z: 0.5734375}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1949507495}
-  m_Father: {fileID: 0}
+  m_Father: {fileID: 1193107674}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 0, y: 0}
-  m_AnchoredPosition: {x: 550.5, y: 257}
+  m_AnchoredPosition: {x: 547.213, y: 253.85855}
   m_SizeDelta: {x: 1920, y: 896.34875}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!1 &1000044989
@@ -1425,6 +1447,11 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!4 &1193107674 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 8553549681910082613, guid: 10933831f9bb7414b9fb063d41fb9cfc, type: 3}
+  m_PrefabInstance: {fileID: 148392293}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1235946157
 GameObject:
   m_ObjectHideFlags: 0
@@ -1456,11 +1483,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 741487285}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!4 &1296143321 stripped
-Transform:
-  m_CorrespondingSourceObject: {fileID: 8553549681910082613, guid: 10933831f9bb7414b9fb063d41fb9cfc, type: 3}
-  m_PrefabInstance: {fileID: 148392293}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1330501020
 GameObject:
   m_ObjectHideFlags: 0
@@ -1615,13 +1637,13 @@ PrefabInstance:
     m_TransformParent: {fileID: 0}
     m_Modifications:
     - target: {fileID: 384199579920342836, guid: 36aac9992e226f442b4557e7f0e19428, type: 3}
-      propertyPath: revolver
-      value: 
-      objectReference: {fileID: 2973943476027849913}
+      propertyPath: opponentAimAngle
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 384199579920342836, guid: 36aac9992e226f442b4557e7f0e19428, type: 3}
-      propertyPath: playerCameraTransform
-      value: 
-      objectReference: {fileID: 1296143321}
+      propertyPath: revolverSelfAimAngle
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 384199579920342836, guid: 36aac9992e226f442b4557e7f0e19428, type: 3}
       propertyPath: revolverOpponentAimAngle
       value: 0
@@ -1943,7 +1965,7 @@ GameObject:
   - component: {fileID: 1949507495}
   - component: {fileID: 1949507497}
   - component: {fileID: 1949507496}
-  m_Layer: 5
+  m_Layer: 3
   m_Name: Image
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2981,6 +3003,5 @@ SceneRoots:
   - {fileID: 435387140}
   - {fileID: 1330501021}
   - {fileID: 135139864}
-  - {fileID: 803336665}
   - {fileID: 148392293}
   - {fileID: 1563539873}

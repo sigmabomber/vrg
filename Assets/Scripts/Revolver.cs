@@ -473,7 +473,7 @@ public class Revolver : EventListener, IRevolverMechanic
     /// <summary>Helper method for audio playback</summary>
     private void PlaySound(AudioClip clip, float volume)
     {
-        if (clip == null) return;
+        if (clip == null || audioSource == null) return;
         audioSource.PlayOneShot(clip, volume);
     }
 

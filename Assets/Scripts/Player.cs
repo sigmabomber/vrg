@@ -5,7 +5,7 @@ public class Player : EventListener, IPlayer
     [Header("Player Info")]
     [SerializeField] private string playerName = "Player";
     [SerializeField] private int playerID = 0;
-    [SerializeField] private int maxHealth = 1;
+    [SerializeField] private int maxHealth = 3;
 
     [Header("Visual Feedback")]
     [SerializeField] private Renderer playerRenderer;

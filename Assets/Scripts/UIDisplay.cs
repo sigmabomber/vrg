@@ -7,6 +7,7 @@ public class UIDisplay : EventListener, IUIDisplay
     [SerializeField] private TMP_Text timerText;
     [SerializeField] private TMP_Text winnerText;
     [SerializeField] private TMP_Text stateText;
+    [SerializeField] private TMP_Text healthText;
 
     [SerializeField] private Color playerTurnColor = Color.cyan;
     [SerializeField] private Color aiTurnColor = Color.yellow;
@@ -25,6 +26,7 @@ public class UIDisplay : EventListener, IUIDisplay
         Listen<RevolverFiredEvent>(OnRevolverFired);
         Listen<GameStateChangedEvent>(OnGameStateChanged);
         Listen<PlayerEliminatedEvent>(OnPlayerEliminated);
+        Listen<PlayerDamagedEvent>(OnPlayerDamaged);
         Listen<UIUpdateEvent>(OnUIUpdate);
         Listen<UIEffectEvent>(OnUIEffect);
     }
@@ -36,6 +38,7 @@ public class UIDisplay : EventListener, IUIDisplay
         if (timerText != null) timerText.text = "";
         if (winnerText != null) winnerText.text = "";
         if (stateText != null) stateText.text = "";
+        if (healthText != null) healthText.text = "";
     }
 
     public void UpdateTurnIndicator(IPlayer currentPlayer)
@@ -114,8 +117,23 @@ public class UIDisplay : EventListener, IUIDisplay
 
     public void UpdatePlayerStatus(IPlayer player, bool isAlive)
     {
-        if (stateText == null) return;
-        stateText.text = $"{player.PlayerName} is {(isAlive ? "alive" : "eliminated")}.";
+        if (healthText != null)
+        {
+            healthText.text = isAlive ? $"{player.PlayerName}: {player.Health} HP" : $"{player.PlayerName} eliminated";
+        }
+
+        if (stateText != null)
+        {
+            stateText.text = $"{player.PlayerName} is {(isAlive ? "alive" : "eliminated")}";
+        }
+    }
+
+    public void UpdatePlayerHealth(IPlayer player)
+    {
+        if (healthText != null)
+        {
+            healthText.text = $"{player.PlayerName}: {player.Health} HP";
+        }
     }
 
     public void ShowWarning(string warningMessage)
@@ -193,6 +211,13 @@ public class UIDisplay : EventListener, IUIDisplay
     private void OnPlayerEliminated(PlayerEliminatedEvent evt)
     {
         UpdatePlayerStatus(evt.Player, false);
+        UpdatePlayerHealth(evt.Player);
+    }
+
+    private void OnPlayerDamaged(PlayerDamagedEvent evt)
+    {
+        UpdatePlayerHealth(evt.Player);
+        UpdatePlayerStatus(evt.Player, evt.Player.IsAlive);
     }
 
     private void OnUIUpdate(UIUpdateEvent evt)

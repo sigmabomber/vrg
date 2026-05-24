@@ -513,7 +513,7 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
         currentTurnTime = 0f;
         IPlayer currentPlayer = players[currentPlayerIndex];
         ChangeState(GameState.TurnInProgress);
-
+        AllowRevolverRotation(false);
         Events.Publish(new TurnStartedEvent { CurrentPlayer = currentPlayer });
 
         // UI updates
@@ -550,12 +550,9 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
     IEnumerator HandleAITurn(IAIPlayer aiPlayer)
     {
         if (uiDisplay != null)
-        {
             uiDisplay.UpdateGameState($"{aiPlayer.PlayerName} is thinking...");
-        }
 
         yield return new WaitForSeconds(aiThinkTime);
-
         if (!gameActive) yield break;
 
         int chambersLeft = revolver.MaxChambers - revolver.CurrentChamber;
@@ -567,28 +564,18 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
             uiDisplay.ShowEffect(UIEffect.DangerWarning);
         }
 
-        // Wait for any revolver passing to complete
         while (isPassingRevolver) yield return null;
 
-        // Allow AI to rotate revolver for aiming
+        // Allow rotation BEFORE handing off to AI
         AllowRevolverRotation(true);
-        aiPlayer.TakeTurn();
 
-        // Wait for aiming animation
-        yield return new WaitForSeconds(0.5f);
+        bool aiDone = false;
+        aiPlayer.TakeTurn(() => aiDone = true);
 
-        IPlayer target = decision == Target.Self ? aiPlayer as IPlayer : players.FirstOrDefault(p => p != aiPlayer && p.IsAlive);
+        // Wait for AI to finish full aim + fire sequence
+        yield return new WaitUntil(() => aiDone);
 
-        if (target != null)
-        {
-            AllowRevolverRotation(false);
-            revolver.Fire();
-        }
-        else
-        {
-            AllowRevolverRotation(false);
-            EndTurn();
-        }
+ 
     }
 
     /// <summary>Forces player to shoot when time runs out</summary>
@@ -1192,11 +1179,15 @@ public class GameManager : EventListener, ITurnBased, IGameRules, IGameManager, 
             {
                 revolverRigidbody.isKinematic = false;
                 revolverRigidbody.constraints = RigidbodyConstraints.None;
+                revolverRigidbody.useGravity = false;  // Disable gravity while aiming
+                revolverRigidbody.linearVelocity = Vector3.zero;
+                revolverRigidbody.angularVelocity = Vector3.zero;
             }
             else
             {
                 revolverRigidbody.isKinematic = true;
                 revolverRigidbody.constraints = RigidbodyConstraints.FreezeAll;
+                revolverRigidbody.useGravity = false;  // Keep gravity disabled
             }
         }
 
